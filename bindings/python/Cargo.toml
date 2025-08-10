@@ -1,0 +1,20 @@
+[package]
+name = "bertalign_rs_py"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name = "bertalign_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20.0", features = ["extension-module"] }
+bertalign-rs = { path = "../../bertalign-rs" }
+# candle-core = { version = "0.8.4" }
+
+[build-dependencies]
+pyo3-build-config = "0.20"
+
+[features]
+default = []
+cuda = ["bertalign-rs/cuda"]

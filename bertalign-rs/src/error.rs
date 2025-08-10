@@ -1,0 +1,34 @@
+use thiserror::Error;
+
+pub type Result<T, E = BertAlignError> = std::result::Result<T, E>;
+
+#[derive(Error, Debug)]
+pub enum BertAlignError {
+    #[error("Embeddings must have the same length: {0}")]
+    EmbeddingsLengthMismatchError(String),
+
+    #[error("Embeddings cannot be empty: {0}")]
+    EmptyEmbeddingsError(String),
+
+    #[error("Value must be nonzero: {0}")]
+    NonZeroValueError(String),
+
+    #[error("String cannot be empty")]
+    EmptyStringError,
+
+    // need less ambiguous error handling here?
+    #[error("Error related to the Candle framework")]
+    CandleError(#[from] candle_core::error::Error),
+
+    #[error("Error related to the tokenizer framework")]
+    TokenizersError(#[from] tokenizers::Error),
+
+    #[error("Error related to hf hub")]
+    HFHubError(#[from] hf_hub::api::sync::ApiError),
+
+    #[error("Error reading serde json")]
+    SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("IO Error")]
+    StdIOError(#[from] std::io::Error),
+}

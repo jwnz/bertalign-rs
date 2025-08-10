@@ -1,0 +1,26 @@
+[package]
+name = "bertalign-rs"
+version = "0.0.1"
+edition = "2021"
+description = "Rust port of Bertalign."
+
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jwnz/bertalign-rs"
+
+[dependencies]
+candle-core = { version = "0.9.1" }
+candle-nn = { version = "0.9.1" }
+hf-hub = { version = "0.3.2", features = ["tokio"] }
+tokenizers = "0.14"
+anyhow = "1.0.75"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0.63"
+tracing = "0.1"
+# tracing-subscriber = "0.3"
+# tracing-chrome = "0.7.2"
+
+[features]
+default = []
+mkl = ["candle-nn/mkl", "candle-core/mkl"]
+cuda = ["candle-core/cuda", "candle-core/cudnn", "candle-nn/cuda"]
