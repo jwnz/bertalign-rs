@@ -1,10 +1,13 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
+use super::Aligner;
 use crate::{
     embed::Embed,
     error::{BertAlignError, Result},
     similarity, utils,
 };
+
+impl Aligner {}
 
 pub fn transform(
     model: &Arc<dyn Embed + Send + Sync>,
