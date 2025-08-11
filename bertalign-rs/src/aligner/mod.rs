@@ -3,7 +3,7 @@ pub mod core;
 use std::sync::Arc;
 
 use crate::embed::Embed;
-use crate::error::{BertAlignError, Result};
+use crate::error::Result;
 
 pub struct AlignerBuilder {
     max_align: usize,
@@ -87,77 +87,7 @@ impl Aligner {
         src_sents: &[&str],
         tgt_sents: &[&str],
     ) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
-        let src_num = src_sents.len();
-        let tgt_num = tgt_sents.len();
-
-        let num_overlaps = std::num::NonZeroUsize::new(self.max_align - 1).ok_or(
-            BertAlignError::NonZeroValueError(
-                "The number of overlaps (max_align - 1) should be > 0".to_string(),
-            ),
-        )?;
-        let top_k = std::num::NonZeroUsize::new(self.top_k).ok_or(
-            BertAlignError::NonZeroValueError("top_k should be > 0".to_string()),
-        )?;
-
-        let (src_vecs, src_len_vecs) = core::transform(&self.model, &src_sents, num_overlaps)?;
-        let (tgt_vecs, tgt_len_vecs) = core::transform(&self.model, &tgt_sents, num_overlaps)?;
-
-        let (top_k_distances, top_k_indicies) =
-            core::find_top_k_sents(&src_vecs, &tgt_vecs, top_k)?;
-
-        let first_alignment_types = core::get_alignment_types(2);
-
-        let (first_w, first_path) = core::find_first_search_path(src_num, tgt_num, None, None);
-
-        let first_pointers = core::first_pass_align(
-            src_num,
-            tgt_num,
-            first_w,
-            &first_path,
-            &first_alignment_types,
-            &top_k_distances,
-            &top_k_indicies,
-        );
-
-        let mut first_alignment = core::first_back_track(
-            src_num,
-            tgt_num,
-            &first_pointers,
-            &first_path,
-            &first_alignment_types,
-        );
-
-        let second_alignment_types = core::get_alignment_types(self.max_align);
-
-        let (second_w, second_path) =
-            core::find_second_search_path(&mut first_alignment, self.win, src_num, tgt_num);
-
-        let sum_f32 = |v: &Vec<usize>| v.iter().map(|&x| x as f32).sum::<f32>();
-        let char_ratio = sum_f32(&src_len_vecs[0]) / sum_f32(&tgt_len_vecs[0]);
-
-        let second_pointers = core::second_pass_align(
-            &src_vecs,
-            &tgt_vecs,
-            &src_len_vecs,
-            &tgt_len_vecs,
-            second_w,
-            &second_path,
-            &second_alignment_types,
-            char_ratio,
-            self.skip,
-            Some(self.margin),
-            Some(self.len_penalty),
-        )?;
-
-        let second_alignment = core::second_back_track(
-            src_num,
-            tgt_num,
-            second_pointers,
-            second_path,
-            second_alignment_types,
-        );
-
-        Ok(second_alignment)
+        self._align(src_sents, tgt_sents)
     }
 }
 
