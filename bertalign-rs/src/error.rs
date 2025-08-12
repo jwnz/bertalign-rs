@@ -31,4 +31,25 @@ pub enum BertAlignError {
 
     #[error("IO Error")]
     StdIOError(#[from] std::io::Error),
+
+    #[error("YieldOverlapError: {0}")]
+    YieldOverlapError(#[from] YieldOverlapError),
+}
+
+#[derive(Error, Debug)]
+pub enum YieldOverlapError {
+    #[error("num_overlaps ({num_overlaps:?}) line count ({line_count:?})")]
+    OverlapsExceedsLineCount {
+        num_overlaps: usize,
+        line_count: usize,
+    },
+
+    #[error("NonEmptyStringError: {0}")]
+    NonEmptyStringError(#[from] NonEmptyStringError),
+}
+
+#[derive(Error, Debug)]
+pub enum NonEmptyStringError {
+    #[error("String cannot be empty")]
+    EmptyString,
 }
