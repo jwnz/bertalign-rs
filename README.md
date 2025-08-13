@@ -13,16 +13,15 @@ cargo build --release --features cuda
 
 ```rust
 fn main() -> error::Result<()> {
-    let labse = LaBSE::new(Some(true), Some(32)).unwrap(); // embedding batch_size = 32
-    let align_args = aligner::AlignArgs {
-        max_align: 5,
-        top_k: 15,
-        win: 5,
-        skip: -0.1,
-        margin: true,
-        len_penalty: true,
-    };
-    let aligner = aligner::Aligner::new(align_args, Arc::new(labse));
+    let labse = Arc::new()LaBSE::new(Some(true), Some(32)).unwrap(); // embedding batch_size = 32
+    let aligner = AlignerBuilder::new(embedding_model.clone())
+            .max_align(5)?
+            .top_k(3)?
+            .win(5)
+            .skip(-0.1)
+            .margin(true)
+            .len_penalty(true)
+            .build();
 
     let lines = vec![
         "The weather was warm and sunny.",
@@ -61,7 +60,6 @@ fn main() -> error::Result<()> {
     }
     Ok(())
 }
-
 ```
 
 # Python
@@ -120,8 +118,6 @@ print(embeddings[0][:5])
 The cosine similarity function is also exposed, and it's non-blocking too!
 
 ```Python
-from concurrent.futures import ThreadPoolExecutor
-
 # get the embeddings
 a = labse.embed(["Good Morning"])[0]
 b = labse.embed(["Guten Morgen"])[0]

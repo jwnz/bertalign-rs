@@ -1,6 +1,6 @@
 # Bertalign-rs
 
-Rust port of [bertalign](https://github.com/bfsujason/bertalign), an automatic multilingual sentence aligner, with [Python](#python) bindings.
+Python bindings to a Rust port of [bertalign](https://github.com/bfsujason/bertalign), an automatic multilingual sentence aligner.
  
 **Install**
 
@@ -56,8 +56,6 @@ print(embeddings[0][:5])
 The cosine similarity function is also exposed, and it's non-blocking too!
 
 ```Python
-from concurrent.futures import ThreadPoolExecutor
-
 # get the embeddings
 a = labse.embed(["Good Morning"])[0]
 b = labse.embed(["Guten Morgen"])[0]
