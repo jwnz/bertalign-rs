@@ -34,11 +34,14 @@ pub enum BertAlignError {
 
     #[error("YieldOverlapError: {0}")]
     YieldOverlapError(#[from] YieldOverlapError),
+
+    #[error("CosineSimilarityError: {0}")]
+    CosineSimilarityError(#[from] CosineSimilarityError),
 }
 
 #[derive(Error, Debug)]
 pub enum YieldOverlapError {
-    #[error("num_overlaps ({num_overlaps:?}) line count ({line_count:?})")]
+    #[error("num_overlaps ({num_overlaps:?}), line count ({line_count:?})")]
     OverlapsExceedsLineCount {
         num_overlaps: usize,
         line_count: usize,
@@ -52,4 +55,13 @@ pub enum YieldOverlapError {
 pub enum NonEmptyStringError {
     #[error("String cannot be empty")]
     EmptyString,
+}
+
+#[derive(Error, Debug)]
+pub enum CosineSimilarityError {
+    #[error("Cosine similarity of 0 sized vectors is undefined")]
+    ZeroSizedVectorSimUndefined,
+
+    #[error("Cosine similarity of vectors of different lengths (lhs: {lhs:?}, rhs: {rhs:?}) is undefined")]
+    DifferentLenVectorSimUndefined { lhs: usize, rhs: usize },
 }
