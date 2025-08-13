@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::Aligner;
 use crate::{
     embed::Embed,
-    error::{BertAlignError, Result},
+    error::{BertAlignError, FindTopKError, Result},
     similarity, utils,
 };
 
@@ -537,27 +537,26 @@ pub fn find_top_k_sents(
     tgt_vecs: &[Vec<Vec<f32>>],
     top_k: usize,
 ) -> Result<(Vec<Vec<f32>>, Vec<Vec<usize>>)> {
-    let src_vecs = src_vecs.get(0).ok_or(BertAlignError::EmptyEmbeddingsError(
-        "src embeddings cannot be empty".to_string(),
-    ))?;
-    let tgt_vecs = tgt_vecs.get(0).ok_or(BertAlignError::EmptyEmbeddingsError(
-        "tgt embeddings cannot be empty".to_string(),
-    ))?;
+    // The first index here grabs the non concatenated sentences
+    // also embedding shouldn't be empty
+    let src_vecs = src_vecs
+        .get(0)
+        .ok_or_else(|| FindTopKError::EmbeddingsCantBeEmpty)?;
+
+    let tgt_vecs = tgt_vecs
+        .get(0)
+        .ok_or_else(|| FindTopKError::EmbeddingsCantBeEmpty)?;
 
     // internal embeddings (token-level) shouldn't be empty either
     if src_vecs.is_empty() {
-        return Err(BertAlignError::EmptyEmbeddingsError(
-            "src token-level embeddings for the first sentence cannot be empty".to_string(),
-        ));
+        return Err(FindTopKError::TokenLevelEmbeddingsCantBeEmpty.into());
     }
     if tgt_vecs.is_empty() {
-        return Err(BertAlignError::EmptyEmbeddingsError(
-            "tgt token-level embeddings for the first sentence cannot be empty".to_string(),
-        ));
+        return Err(FindTopKError::TokenLevelEmbeddingsCantBeEmpty.into());
     }
 
     let mut topk_scores = Vec::with_capacity(src_vecs.len());
-    let mut topk_indices = Vec::with_capacity(src_vecs.len());
+    let mut topk_indices = Vec::with_capacity(tgt_vecs.len());
 
     for src_vec in src_vecs.iter() {
         let mut sims = Vec::with_capacity(tgt_vecs.len());

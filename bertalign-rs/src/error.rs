@@ -25,6 +25,9 @@ pub enum BertAlignError {
     #[error("AlignBuilderError: {0}")]
     AlignBuilderError(#[from] AlignBuilderError),
 
+    #[error("FindTopKError: {0}")]
+    FindTopKError(#[from] FindTopKError),
+
     #[error("CandleError: {0}")]
     CandleError(#[from] candle_core::error::Error),
 
@@ -78,4 +81,16 @@ pub enum CosineSimilarityError {
 
     #[error("Cosine similarity of vectors of different lengths (lhs: {lhs:?}, rhs: {rhs:?}) is undefined")]
     DifferentLenVectorSimUndefined { lhs: usize, rhs: usize },
+}
+
+#[derive(Error, Debug)]
+pub enum FindTopKError {
+    #[error("Embeddings can't be empty")]
+    EmbeddingsCantBeEmpty,
+
+    #[error("Token-level embeddings can't be empty")]
+    TokenLevelEmbeddingsCantBeEmpty,
+
+    #[error("CosineSimilarityError: {0}")]
+    CosineSimilarityError(#[from] CosineSimilarityError),
 }
