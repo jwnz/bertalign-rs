@@ -8,12 +8,11 @@ name = "bertalign_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.20.0", features = ["extension-module"] }
+pyo3 = { version = "0.25.0", features = ["extension-module"] }
 bertalign-rs = { path = "../../bertalign-rs" }
-# candle-core = { version = "0.8.4" }
 
 [build-dependencies]
-pyo3-build-config = "0.20"
+pyo3-build-config = "0.25"
 
 [features]
 default = []
