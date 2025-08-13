@@ -1,5 +1,4 @@
 use crate::error::{NonEmptyStringError, YieldOverlapError};
-use std::num::NonZeroUsize;
 
 const SPACE: &'static str = " ";
 
@@ -24,7 +23,7 @@ impl std::str::FromStr for NonEmptyString {
 
 pub fn yield_overlaps(
     lines: &[&str],
-    num_overlaps: NonZeroUsize,
+    num_overlaps: usize,
 ) -> Result<Vec<Option<String>>, YieldOverlapError> {
     // Check if lines are non-empty
     let lines = lines
@@ -32,7 +31,10 @@ pub fn yield_overlaps(
         .map(|s| s.parse::<NonEmptyString>().map(|s| s.into_inner()))
         .collect::<Result<Vec<String>, NonEmptyStringError>>()?;
 
-    let num_overlaps = num_overlaps.get();
+    // make sure num_overlaps > 0
+    if num_overlaps == 0 {
+        return Err(YieldOverlapError::OverlapsCantBeZero(num_overlaps));
+    }
 
     // make sure num_overlaps doesn't exceed line cnt
     if num_overlaps > lines.len() {
@@ -128,11 +130,7 @@ mod tests {
     #[test]
     fn test_yield_overlaps() {
         assert_eq!(
-            yield_overlaps(
-                &["한국어", "hello", "你好", "わたし"],
-                NonZeroUsize::new(4).unwrap(),
-            )
-            .unwrap(),
+            yield_overlaps(&["한국어", "hello", "你好", "わたし"], 4,).unwrap(),
             [
                 Some("한국어".to_string()),
                 Some("hello".to_string()),
@@ -157,7 +155,7 @@ mod tests {
     #[test]
     fn test_yield_overlaps_empty_string() {
         assert!(matches!(
-            yield_overlaps(&["hello", "", "world"], NonZeroUsize::new(2).unwrap()),
+            yield_overlaps(&["hello", "", "world"], 2),
             Err(YieldOverlapError::NonEmptyStringError(_))
         ));
     }
@@ -165,7 +163,7 @@ mod tests {
     #[test]
     fn test_yield_overlaps_overlap_exceeds_lc() {
         assert!(matches!(
-            yield_overlaps(&["hi"], NonZeroUsize::new(5).unwrap()),
+            yield_overlaps(&["hi"], 5),
             Err(YieldOverlapError::OverlapsExceedsLineCount {
                 num_overlaps: 5,
                 line_count: 1

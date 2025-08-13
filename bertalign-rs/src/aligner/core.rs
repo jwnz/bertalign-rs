@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::sync::Arc;
 
 use super::Aligner;
 use crate::{
@@ -16,19 +16,12 @@ impl Aligner {
         let src_num = src_sents.len();
         let tgt_num = tgt_sents.len();
 
-        let num_overlaps = std::num::NonZeroUsize::new(self.max_align - 1).ok_or(
-            BertAlignError::NonZeroValueError(
-                "The number of overlaps (max_align - 1) should be > 0".to_string(),
-            ),
-        )?;
-        let top_k = std::num::NonZeroUsize::new(self.top_k).ok_or(
-            BertAlignError::NonZeroValueError("top_k should be > 0".to_string()),
-        )?;
+        let num_overlaps = self.max_align.saturating_sub(1);
 
         let (src_vecs, src_len_vecs) = transform(&self.model, &src_sents, num_overlaps)?;
         let (tgt_vecs, tgt_len_vecs) = transform(&self.model, &tgt_sents, num_overlaps)?;
 
-        let (top_k_distances, top_k_indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k)?;
+        let (top_k_distances, top_k_indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, self.top_k)?;
 
         let first_alignment_types = get_alignment_types(2);
 
@@ -89,11 +82,9 @@ impl Aligner {
 pub fn transform(
     model: &Arc<dyn Embed + Send + Sync>,
     sents: &[&str],
-    num_overlaps: NonZeroUsize,
+    num_overlaps: usize,
 ) -> Result<(Vec<Vec<Vec<f32>>>, Vec<Vec<usize>>)> {
     let overlaps = utils::yield_overlaps(&sents, num_overlaps)?;
-
-    let num_overlaps = num_overlaps.get();
 
     // actually embeddable text segments
     let embeddable_cnt = overlaps.iter().filter(|x| x.is_some()).count();
@@ -544,10 +535,8 @@ pub fn second_back_track(
 pub fn find_top_k_sents(
     src_vecs: &[Vec<Vec<f32>>],
     tgt_vecs: &[Vec<Vec<f32>>],
-    top_k: NonZeroUsize,
+    top_k: usize,
 ) -> Result<(Vec<Vec<f32>>, Vec<Vec<usize>>)> {
-    let top_k = top_k.get();
-
     let src_vecs = src_vecs.get(0).ok_or(BertAlignError::EmptyEmbeddingsError(
         "src embeddings cannot be empty".to_string(),
     ))?;
@@ -668,12 +657,12 @@ mod tests {
             vec![1.0, 1.0], // tgt 3
         ]];
 
-        let top_k = NonZeroUsize::new(1).unwrap();
+        let top_k = 1;
         let (_, indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k).unwrap();
         assert_eq!(indicies, [[0], [1]]);
 
         // top_k might be larger than size of tgt_vecs
-        let top_k = NonZeroUsize::new(100).unwrap();
+        let top_k = 100;
         let (_, indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k).unwrap();
         assert_eq!(indicies, [[0, 2, 1], [1, 2, 0]]);
 
@@ -707,8 +696,8 @@ mod tests {
     #[test]
     fn test_transform() {
         let sents = vec!["a", "b", "c"];
-        let num_overlaps = NonZeroUsize::new(3).unwrap();
-        let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps.get());
+        let num_overlaps = 3;
+        let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps);
 
         let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
 
