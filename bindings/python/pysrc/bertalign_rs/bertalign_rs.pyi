@@ -1,7 +1,8 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
-class BertAlignArgs:
+class BertAlign:
     def __init__(
+        model: LaBSE,
         max_align=5,
         top_k=3,
         win=5,
@@ -9,21 +10,18 @@ class BertAlignArgs:
         margin=True,
         len_penalty=True,
     ) -> None:
-        """Arguments used for aligning sentences"""
-        ...
-
-class BertAlign:
-    def __init__(args: Optional[BertAlignArgs]) -> None:
         """BertAlinger.
-        
+
         Args:
             args (BertAlignArgs): Alignment arguments. When not provided default arguments are used.
         """
         ...
 
-    def align(src_sents: List[str], tgt_sents: List[str]) -> List[Tuple[List[int], List[int]]]:
+    def align(
+        src_sents: List[str], tgt_sents: List[str]
+    ) -> List[Tuple[List[int], List[int]]]:
         """Align a list of source and target sentences.
-        
+
         Args:
             src_sents (List[str]): List of source sentences
             tgt_sents (List[str]): List of target sentences
@@ -35,7 +33,6 @@ class BertAlign:
             second element in the tuple is the indicies of the target sentences.
         """
         ...
-
 
 class LaBSE:
     def __init__(use_safetensors=True, batch_size=32) -> None:
