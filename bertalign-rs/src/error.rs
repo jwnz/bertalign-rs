@@ -1,34 +1,113 @@
 use thiserror::Error;
 
-pub type Result<T, E = BertAlignError> = std::result::Result<T, E>;
-
 #[derive(Error, Debug)]
 pub enum BertAlignError {
-    #[error("Embeddings must have the same length: {0}")]
-    EmbeddingsLengthMismatchError(String),
+    #[error("TransformError: {0}")]
+    TransformError(#[from] TransformError),
 
-    #[error("Embeddings cannot be empty: {0}")]
-    EmptyEmbeddingsError(String),
+    #[error("FindTopKError: {0}")]
+    FindTopKError(#[from] FindTopKError),
 
-    #[error("Value must be nonzero: {0}")]
-    NonZeroValueError(String),
+    #[error("PlaceholderError: {0}")]
+    PlaceHolderError(#[from] PlaceholderError),
+}
 
+#[derive(Error, Debug)]
+pub enum AlignBuilderError {
+    #[error("max_align ({0}) must be > 1")]
+    MaxAlignTooSmall(usize),
+
+    #[error("top_k ({0}) must be >= 1")]
+    TopKTooSmall(usize),
+}
+
+#[derive(Error, Debug)]
+pub enum YieldOverlapError {
+    #[error("num_overlaps ({num_overlaps:?}), line count ({line_count:?})")]
+    OverlapsExceedsLineCount {
+        num_overlaps: usize,
+        line_count: usize,
+    },
+
+    #[error("num_overlaps ({0}), cannot be 0")]
+    OverlapsCantBeZero(usize),
+
+    #[error("NonEmptyStringError: {0}")]
+    NonEmptyStringError(#[from] NonEmptyStringError),
+}
+
+#[derive(Error, Debug)]
+pub enum NonEmptyStringError {
     #[error("String cannot be empty")]
-    EmptyStringError,
+    EmptyString,
+}
 
-    // need less ambiguous error handling here?
-    #[error("Error related to the Candle framework")]
+#[derive(Error, Debug)]
+pub enum CosineSimilarityError {
+    #[error("Cosine similarity of 0 sized vectors is undefined")]
+    ZeroSizedVectorSimUndefined,
+
+    #[error("Cosine similarity of vectors of different lengths (lhs: {lhs:?}, rhs: {rhs:?}) is undefined")]
+    DifferentLenVectorSimUndefined { lhs: usize, rhs: usize },
+}
+
+#[derive(Error, Debug)]
+pub enum FindTopKError {
+    #[error("Embeddings can't be empty")]
+    EmbeddingsCantBeEmpty,
+
+    #[error("Token-level embeddings can't be empty")]
+    TokenLevelEmbeddingsCantBeEmpty,
+
+    #[error("CosineSimilarityError: {0}")]
+    CosineSimilarityError(#[from] CosineSimilarityError),
+}
+
+#[derive(Error, Debug)]
+pub enum TransformError {
+    #[error("Embeddings can't be empty")]
+    EmbeddingsCantBeEmpty,
+
+    #[error("Index ({0}) out of bounds error for sentence_embeddings")]
+    SentenceEmbeddingIndexOutOfBounds(usize),
+
+    #[error("YieldOverlapError: {0}")]
+    YieldOverlapError(#[from] YieldOverlapError),
+
+    #[error("CandleError: {0}")]
     CandleError(#[from] candle_core::error::Error),
 
-    #[error("Error related to the tokenizer framework")]
+    #[error("EmbeddingError: {0}")]
+    EmbeddingError(#[from] EmbeddingError),
+}
+
+#[derive(Error, Debug)]
+pub enum EmbeddingError {
+    #[error("LabseError: {0}")]
+    LabseError(#[from] LabseError),
+}
+
+#[derive(Error, Debug)]
+pub enum LabseError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+
+    #[error("TokenizersError: {0}")]
     TokenizersError(#[from] tokenizers::Error),
 
-    #[error("Error related to hf hub")]
+    #[error("HFHubError: {0}")]
     HFHubError(#[from] hf_hub::api::sync::ApiError),
 
-    #[error("Error reading serde json")]
+    #[error("SerdeJsonError: {0}")]
     SerdeJsonError(#[from] serde_json::Error),
 
-    #[error("IO Error")]
+    #[error("IO Error: {0}")]
     StdIOError(#[from] std::io::Error),
+}
+
+// placeholder until I figure out a better way to handle some errors
+#[derive(Debug, Error)]
+pub enum PlaceholderError {
+    #[error("CosineSimilarityError: {0}")]
+    CosineSimilarityError(#[from] CosineSimilarityError),
 }

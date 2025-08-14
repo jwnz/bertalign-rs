@@ -6,7 +6,7 @@ use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer};
 
 use super::bert::{BertModel, Config, DTYPE};
 use crate::embed::Embed;
-use crate::error::Result;
+use crate::error::{EmbeddingError, LabseError};
 
 pub struct LaBSE {
     pub tokenizer: Tokenizer,
@@ -27,7 +27,10 @@ impl std::fmt::Debug for LaBSE {
 }
 
 impl LaBSE {
-    pub fn new(use_safetensors: Option<bool>, batch_size: Option<usize>) -> Result<Self> {
+    pub fn new(
+        use_safetensors: Option<bool>,
+        batch_size: Option<usize>,
+    ) -> Result<Self, LabseError> {
         // check if compiled with the cuda option, fallback to cpu if gpu
         // isn't visible
         let device = match candle_core::utils::cuda_is_available() {
@@ -48,7 +51,7 @@ impl LaBSE {
         device: candle_core::Device,
         use_safetensors: Option<bool>,
         batch_size: Option<usize>,
-    ) -> Result<LaBSE> {
+    ) -> Result<LaBSE, LabseError> {
         let repo = Repo::model(model_name.to_string());
 
         // download stuff from hf hub
@@ -106,7 +109,7 @@ impl LaBSE {
 }
 
 #[tracing::instrument]
-fn cls_pooling(last_hidden_state: &Tensor) -> Result<Tensor> {
+fn cls_pooling(last_hidden_state: &Tensor) -> Result<Tensor, LabseError> {
     Ok(last_hidden_state.get_on_dim(1, 0)?)
 }
 
@@ -115,7 +118,7 @@ fn encode_text(
     sentences: &[&str],
     tokenizer: &Tokenizer,
     device: &Device,
-) -> Result<(Tensor, Tensor, Tensor)> {
+) -> Result<(Tensor, Tensor, Tensor), LabseError> {
     let encoding = tokenizer.encode_batch(sentences.to_vec(), true)?;
 
     let (token_ids, attn_mask): (Vec<_>, Vec<_>) = encoding
@@ -144,7 +147,7 @@ pub fn embed_text(
     model: &LaBSE,
     device: &Device,
     batch_size: usize,
-) -> Result<Tensor> {
+) -> Result<Vec<Vec<f32>>, LabseError> {
     let mut embeddings = Vec::new();
 
     for batch in sentences.chunks(batch_size) {
@@ -177,16 +180,15 @@ pub fn embed_text(
         embeddings.push(batch_embeddings);
     }
 
-    Ok(Tensor::cat(&embeddings, 0)?)
+    let embeddings = Tensor::cat(&embeddings, 0)?.squeeze(1)?.to_vec2()?;
+    Ok(embeddings)
 }
 
 impl Embed for LaBSE {
     #[tracing::instrument]
-    fn embed(&self, lines: &[&str]) -> Result<Vec<Vec<f32>>> {
+    fn embed(&self, lines: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
         let device = &self.bert.device;
-        let embeddings = embed_text(lines, self, device, self.batch_size)?
-            .squeeze(1)?
-            .to_vec2()?;
+        let embeddings = embed_text(lines, self, device, self.batch_size)?;
 
         Ok(embeddings)
     }

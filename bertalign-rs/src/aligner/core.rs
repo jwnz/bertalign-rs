@@ -1,19 +1,90 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::sync::Arc;
 
+use super::Aligner;
 use crate::{
     embed::Embed,
-    error::{BertAlignError, Result},
+    error::{BertAlignError, FindTopKError, PlaceholderError, TransformError},
     similarity, utils,
 };
+
+impl Aligner {
+    pub fn _align(
+        &self,
+        src_sents: &[&str],
+        tgt_sents: &[&str],
+    ) -> Result<Vec<(Vec<usize>, Vec<usize>)>, BertAlignError> {
+        let src_num = src_sents.len();
+        let tgt_num = tgt_sents.len();
+
+        let num_overlaps = self.max_align.saturating_sub(1);
+
+        let (src_vecs, src_len_vecs) = transform(&self.model, &src_sents, num_overlaps)?;
+        let (tgt_vecs, tgt_len_vecs) = transform(&self.model, &tgt_sents, num_overlaps)?;
+
+        let (top_k_distances, top_k_indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, self.top_k)?;
+
+        let first_alignment_types = get_alignment_types(2);
+
+        let (first_w, first_path) = find_first_search_path(src_num, tgt_num, None, None);
+
+        let first_pointers = first_pass_align(
+            src_num,
+            tgt_num,
+            first_w,
+            &first_path,
+            &first_alignment_types,
+            &top_k_distances,
+            &top_k_indicies,
+        );
+
+        let mut first_alignment = first_back_track(
+            src_num,
+            tgt_num,
+            &first_pointers,
+            &first_path,
+            &first_alignment_types,
+        );
+
+        let second_alignment_types = get_alignment_types(self.max_align);
+
+        let (second_w, second_path) =
+            find_second_search_path(&mut first_alignment, self.win, src_num, tgt_num);
+
+        let sum_f32 = |v: &Vec<usize>| v.iter().map(|&x| x as f32).sum::<f32>();
+        let char_ratio = sum_f32(&src_len_vecs[0]) / sum_f32(&tgt_len_vecs[0]);
+
+        let second_pointers = second_pass_align(
+            &src_vecs,
+            &tgt_vecs,
+            &src_len_vecs,
+            &tgt_len_vecs,
+            second_w,
+            &second_path,
+            &second_alignment_types,
+            char_ratio,
+            self.skip,
+            Some(self.margin),
+            Some(self.len_penalty),
+        )?;
+
+        let second_alignment = second_back_track(
+            src_num,
+            tgt_num,
+            second_pointers,
+            second_path,
+            second_alignment_types,
+        );
+
+        Ok(second_alignment)
+    }
+}
 
 pub fn transform(
     model: &Arc<dyn Embed + Send + Sync>,
     sents: &[&str],
-    num_overlaps: NonZeroUsize,
-) -> Result<(Vec<Vec<Vec<f32>>>, Vec<Vec<usize>>)> {
+    num_overlaps: usize,
+) -> Result<(Vec<Vec<Vec<f32>>>, Vec<Vec<usize>>), TransformError> {
     let overlaps = utils::yield_overlaps(&sents, num_overlaps)?;
-
-    let num_overlaps = num_overlaps.get();
 
     // actually embeddable text segments
     let embeddable_cnt = overlaps.iter().filter(|x| x.is_some()).count();
@@ -42,14 +113,12 @@ pub fn transform(
 
     // embed overlaps
     let sent_vecs = model.embed(&embeddable_overlaps)?;
-    let zero_tensor;
-    if let Some(sent_vec) = sent_vecs.get(0) {
-        zero_tensor = vec![0 as f32; sent_vec.len()];
-    } else {
-        return Err(BertAlignError::EmptyEmbeddingsError(
-            "src embeddings cannot be empty".to_string(),
-        ));
-    }
+
+    // Zero embeddings for the padding - when overlap is None
+    let zero_tensor = match sent_vecs.get(0) {
+        Some(sent_vec) => Ok(vec![0 as f32; sent_vec.len()]),
+        None => Err(TransformError::EmbeddingsCantBeEmpty),
+    }?;
 
     let mut curr_idx = 0;
 
@@ -57,21 +126,19 @@ pub fn transform(
         if *is_pad {
             embeddings_with_pad.push(zero_tensor.clone())
         } else {
-            let sent_vec =
-                sent_vecs
-                    .get(curr_idx)
-                    .ok_or(BertAlignError::EmbeddingsLengthMismatchError(
-                        "Embedded vectors count doesn't match length of input sentences"
-                            .to_string(),
-                    ))?;
+            let sent_vec = sent_vecs
+                .get(curr_idx)
+                .ok_or_else(|| TransformError::SentenceEmbeddingIndexOutOfBounds(curr_idx))?;
             embeddings_with_pad.push(sent_vec.clone());
             curr_idx += 1;
         }
     }
+
     let sent_vecs = embeddings_with_pad
         .chunks(embeddings_with_pad.len() / num_overlaps)
         .map(|chunk| chunk.to_vec())
         .collect::<Vec<Vec<Vec<f32>>>>();
+
     Ok((sent_vecs, len_vecs))
 }
 
@@ -271,7 +338,7 @@ pub fn second_pass_align(
     skip: f32,
     margin: Option<bool>,
     len_penalty: Option<bool>,
-) -> Result<Vec<Vec<u8>>> {
+) -> Result<Vec<Vec<u8>>, PlaceholderError> {
     let margin = margin.unwrap_or(false);
     let len_penalty = len_penalty.unwrap_or(false);
 
@@ -356,7 +423,7 @@ pub fn calculate_similarity_score(
     src_len: usize,
     tgt_len: usize,
     margin: Option<bool>,
-) -> Result<f32> {
+) -> Result<f32, PlaceholderError> {
     let margin = margin.unwrap_or(false);
     let src_v = &src_vecs[src_overlap - 1][src_idx - 1];
     let tgt_v = &tgt_vecs[tgt_overlap - 1][tgt_idx - 1];
@@ -383,7 +450,7 @@ pub fn calculate_neighbor_similarity(
     sent_idx: usize,
     sent_len: usize,
     db: &[Vec<Vec<f32>>],
-) -> Result<f32> {
+) -> Result<f32, PlaceholderError> {
     let left_idx = sent_idx - overlap;
     let right_idx = sent_idx + 1;
 
@@ -464,31 +531,28 @@ pub fn second_back_track(
 pub fn find_top_k_sents(
     src_vecs: &[Vec<Vec<f32>>],
     tgt_vecs: &[Vec<Vec<f32>>],
-    top_k: NonZeroUsize,
-) -> Result<(Vec<Vec<f32>>, Vec<Vec<usize>>)> {
-    let top_k = top_k.get();
+    top_k: usize,
+) -> Result<(Vec<Vec<f32>>, Vec<Vec<usize>>), FindTopKError> {
+    // The first index here grabs the non concatenated sentences
+    // also embedding shouldn't be empty
+    let src_vecs = src_vecs
+        .get(0)
+        .ok_or_else(|| FindTopKError::EmbeddingsCantBeEmpty)?;
 
-    let src_vecs = src_vecs.get(0).ok_or(BertAlignError::EmptyEmbeddingsError(
-        "src embeddings cannot be empty".to_string(),
-    ))?;
-    let tgt_vecs = tgt_vecs.get(0).ok_or(BertAlignError::EmptyEmbeddingsError(
-        "tgt embeddings cannot be empty".to_string(),
-    ))?;
+    let tgt_vecs = tgt_vecs
+        .get(0)
+        .ok_or_else(|| FindTopKError::EmbeddingsCantBeEmpty)?;
 
     // internal embeddings (token-level) shouldn't be empty either
     if src_vecs.is_empty() {
-        return Err(BertAlignError::EmptyEmbeddingsError(
-            "src token-level embeddings for the first sentence cannot be empty".to_string(),
-        ));
+        return Err(FindTopKError::TokenLevelEmbeddingsCantBeEmpty.into());
     }
     if tgt_vecs.is_empty() {
-        return Err(BertAlignError::EmptyEmbeddingsError(
-            "tgt token-level embeddings for the first sentence cannot be empty".to_string(),
-        ));
+        return Err(FindTopKError::TokenLevelEmbeddingsCantBeEmpty.into());
     }
 
     let mut topk_scores = Vec::with_capacity(src_vecs.len());
-    let mut topk_indices = Vec::with_capacity(src_vecs.len());
+    let mut topk_indices = Vec::with_capacity(tgt_vecs.len());
 
     for src_vec in src_vecs.iter() {
         let mut sims = Vec::with_capacity(tgt_vecs.len());
@@ -519,6 +583,7 @@ pub fn find_top_k_sents(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::*;
 
     // Mock embedder for testing
     struct MockEmbedder {
@@ -543,7 +608,7 @@ mod tests {
     }
 
     impl Embed for MockEmbedder {
-        fn embed(&self, _lines: &[&str]) -> Result<Vec<Vec<f32>>> {
+        fn embed(&self, _lines: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
             Ok(self.embeddings.clone())
         }
     }
@@ -588,47 +653,79 @@ mod tests {
             vec![1.0, 1.0], // tgt 3
         ]];
 
-        let top_k = NonZeroUsize::new(1).unwrap();
+        let top_k = 1;
         let (_, indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k).unwrap();
         assert_eq!(indicies, [[0], [1]]);
+    }
+
+    #[test]
+    fn test_find_topk_topk_longer_than_sent_cnt() {
+        let src_vecs = vec![vec![
+            vec![1.0, 0.0], // src 1
+            vec![0.0, 1.0], // src 2
+        ]];
+        let tgt_vecs = vec![vec![
+            vec![1.0, 0.0], // tgt 1
+            vec![0.0, 1.0], // tgt 2
+            vec![1.0, 1.0], // tgt 3
+        ]];
 
         // top_k might be larger than size of tgt_vecs
-        let top_k = NonZeroUsize::new(100).unwrap();
+        let top_k = 100;
         let (_, indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k).unwrap();
         assert_eq!(indicies, [[0, 2, 1], [1, 2, 0]]);
+    }
 
-        // The embeddings should never be empty
+    #[test]
+    fn test_find_topk_empty_embeddings() {
+        let src_vecs = vec![vec![
+            vec![1.0, 0.0], // src 1
+            vec![0.0, 1.0], // src 2
+        ]];
         let empty_embeddings = vec![];
         assert!(matches!(
-            find_top_k_sents(&src_vecs, &empty_embeddings, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            find_top_k_sents(&src_vecs, &empty_embeddings, 3),
+            Err(FindTopKError::EmbeddingsCantBeEmpty)
         ));
         assert!(matches!(
-            find_top_k_sents(&empty_embeddings, &src_vecs, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            find_top_k_sents(&empty_embeddings, &src_vecs, 3),
+            Err(FindTopKError::EmbeddingsCantBeEmpty)
         ));
-        assert!(matches!(
-            find_top_k_sents(&empty_embeddings, &empty_embeddings, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
-        ));
+    }
 
-        // The internal embeddings also shouldn't be empty
-        let internal_empty_embeddings = vec![vec![]];
+    #[test]
+    fn test_find_topk_empty_token_embeddings() {
+        let src_vecs = vec![
+            vec![], // no token embeddings
+        ];
         assert!(matches!(
-            find_top_k_sents(&src_vecs, &internal_empty_embeddings, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            find_top_k_sents(&src_vecs, &src_vecs, 3),
+            Err(FindTopKError::TokenLevelEmbeddingsCantBeEmpty)
         ));
+    }
+
+    #[test]
+    fn test_find_topk_different_size_token_embeddings() {
+        let src_vecs = vec![vec![
+            vec![1.0, 0.0], // src 1
+            vec![0.0, 1.0], // src 2
+        ]];
+
+        let tgt_vecs = vec![vec![
+            vec![1.0], // tgt 1
+            vec![0.0], // tgt 2
+        ]];
         assert!(matches!(
-            find_top_k_sents(&internal_empty_embeddings, &src_vecs, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            find_top_k_sents(&src_vecs, &tgt_vecs, 3),
+            Err(FindTopKError::CosineSimilarityError(_))
         ));
     }
 
     #[test]
     fn test_transform() {
         let sents = vec!["a", "b", "c"];
-        let num_overlaps = NonZeroUsize::new(3).unwrap();
-        let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps.get());
+        let num_overlaps = 3;
+        let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps);
 
         let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
 
@@ -642,26 +739,32 @@ mod tests {
             ]
         );
         assert_eq!(lengths, [[1, 1, 1], [0, 3, 3], [0, 0, 5]]);
+    }
 
+    #[test]
+    fn test_transform_embeddings_empty() {
         // The model shouldn't be allowed to return empty embeddings
         let embeddings = vec![];
         let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
         assert!(matches!(
-            transform(&model, &sents, num_overlaps),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            transform(&model, &["hello"], 1),
+            Err(TransformError::EmbeddingsCantBeEmpty)
         ));
+    }
 
-        // The input sentence count shouldn't be different from whatever the model returns
-        let embeddings = vec![vec![0.1, 0.2, 0.3], vec![0.1, 0.2, 0.3]];
-        let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
-        assert!(matches!(
-            transform(&model, &sents, num_overlaps),
-            Err(BertAlignError::EmbeddingsLengthMismatchError(_))
-        ));
+    #[test]
+    fn test_transform_embedding_sentlen_dont_match() {
+        // Let's create the scenario where we have 3 input sentences, and num_overlaps = 3.
+        // This will give us 3 * 3 - 2! = 7 embeddable sentences, with a total of 9 overlaps.
+        let sents = vec!["a", "b", "c"];
+        let num_overlaps = 3;
 
-        // example where the embeddings is longer than the input sentences
+        // However, consider for whatever reason, we only have 5 embeddings returned from the embedding model.
+        // We loop based on the num_overlaps, adding a zero vector for the padding, and the
+        // corresponding embedded vector for the embeddable overlap/sentence to the final result
+        // embedding list. If the model only returned 5 embeddings, then when indexing to get the
+        // embedding for the 6th overlap/sentence, we will get an index error.
         let embeddings = vec![
-            vec![0.1, 0.2, 0.3],
             vec![0.1, 0.2, 0.3],
             vec![0.1, 0.2, 0.3],
             vec![0.1, 0.2, 0.3],
@@ -670,7 +773,7 @@ mod tests {
         let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
         assert!(matches!(
             transform(&model, &sents, num_overlaps),
-            Err(BertAlignError::EmbeddingsLengthMismatchError(_))
+            Err(TransformError::SentenceEmbeddingIndexOutOfBounds(4))
         ));
     }
 }
