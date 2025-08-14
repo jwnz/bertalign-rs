@@ -1,33 +1,48 @@
-use crate::error::{BertAlignError, Result};
-use std::num::NonZeroUsize;
+use crate::error::{NonEmptyStringError, YieldOverlapError};
 
 const SPACE: &'static str = " ";
 
-#[derive(Debug)]
 struct NonEmptyString(String);
-impl NonEmptyString {
-    fn new(s: &str) -> Result<Self> {
-        if s.trim().is_empty() {
-            Err(BertAlignError::EmptyStringError)
-        } else {
-            Ok(NonEmptyString(s.to_string()))
-        }
-    }
 
+impl NonEmptyString {
     pub fn into_inner(self) -> String {
         self.0
     }
 }
 
-pub fn yield_overlaps(lines: &[&str], num_overlaps: NonZeroUsize) -> Result<Vec<Option<String>>> {
+impl std::str::FromStr for NonEmptyString {
+    type Err = NonEmptyStringError;
+    fn from_str(s: &str) -> Result<Self, NonEmptyStringError> {
+        if s.trim().is_empty() {
+            Err(NonEmptyStringError::EmptyString)
+        } else {
+            Ok(NonEmptyString(s.to_string()))
+        }
+    }
+}
+
+pub fn yield_overlaps(
+    lines: &[&str],
+    num_overlaps: usize,
+) -> Result<Vec<Option<String>>, YieldOverlapError> {
     // Check if lines are non-empty
     let lines = lines
         .into_iter()
-        .map(|s| NonEmptyString::new(s).map(|s| s.into_inner()))
-        .collect::<Result<Vec<String>>>()?;
+        .map(|s| s.parse::<NonEmptyString>().map(|s| s.into_inner()))
+        .collect::<Result<Vec<String>, NonEmptyStringError>>()?;
+
+    // make sure num_overlaps > 0
+    if num_overlaps == 0 {
+        return Err(YieldOverlapError::OverlapsCantBeZero(num_overlaps));
+    }
 
     // make sure num_overlaps doesn't exceed line cnt
-    let num_overlaps = std::cmp::min(num_overlaps.get(), lines.len());
+    if num_overlaps > lines.len() {
+        return Err(YieldOverlapError::OverlapsExceedsLineCount {
+            num_overlaps: num_overlaps,
+            line_count: lines.len(),
+        });
+    }
 
     let mut overlaps: Vec<Option<String>> = vec![];
 
@@ -62,30 +77,60 @@ mod tests {
 
     #[test]
     fn test_non_empty_string() {
-        assert_eq!(NonEmptyString::new("Hello").unwrap().into_inner(), "Hello");
+        let s = "Hello".parse::<NonEmptyString>().unwrap();
+        assert_eq!(s.into_inner(), "Hello".to_string());
+    }
+
+    #[test]
+    fn test_non_empty_string_is_empty() {
+        assert!(matches!(
+            "".parse::<NonEmptyString>(),
+            Err(NonEmptyStringError::EmptyString)
+        ));
 
         assert!(matches!(
-            NonEmptyString::new(""),
-            Err(BertAlignError::EmptyStringError)
+            "      ".parse::<NonEmptyString>(),
+            Err(NonEmptyStringError::EmptyString)
         ));
-        assert!(matches!(
-            NonEmptyString::new("      "),
-            Err(BertAlignError::EmptyStringError)
-        ));
+    }
 
-        // These invisible character related edge cases are currently not
-        // covered, as the string is technically not non-empty
-        assert_eq!(NonEmptyString::new("‎").unwrap().into_inner(), "‎");
+    #[test]
+    fn test_non_empty_string_invisible_chars() {
+        // Left-to-Right Mark (U+200E)
+        assert_eq!("‎".parse::<NonEmptyString>().unwrap().into_inner(), "‎");
+
+        // Right-to-Left Mark (U+200F)
+        assert_eq!("‏".parse::<NonEmptyString>().unwrap().into_inner(), "‏");
+
+        // Zero-Width Space (U+200B)
+        assert_eq!("​".parse::<NonEmptyString>().unwrap().into_inner(), "​");
+
+        // Zero-Width Non-Joiner (U+200C)
+        assert_eq!("‌".parse::<NonEmptyString>().unwrap().into_inner(), "‌");
+
+        // Zero-Width Joiner (U+200D)
+        assert_eq!("‍".parse::<NonEmptyString>().unwrap().into_inner(), "‍");
+
+        // Word Joiner (U+2060)
+        assert_eq!("⁠".parse::<NonEmptyString>().unwrap().into_inner(), "⁠");
+
+        // Hangul Filler (U+3164)
+        assert_eq!("ㅤ".parse::<NonEmptyString>().unwrap().into_inner(), "ㅤ");
+
+        // Braille Pattern Blank (U+2800)
+        assert_eq!("⠀".parse::<NonEmptyString>().unwrap().into_inner(), "⠀");
+
+        // Zero Width No-Break Space / Byte Order Mark (U+FEFF)
+        assert_eq!("﻿".parse::<NonEmptyString>().unwrap().into_inner(), "﻿");
+
+        // Combining Grapheme Joiner (U+034F)
+        assert_eq!("͏".parse::<NonEmptyString>().unwrap().into_inner(), "͏");
     }
 
     #[test]
     fn test_yield_overlaps() {
         assert_eq!(
-            yield_overlaps(
-                &["한국어", "hello", "你好", "わたし"],
-                NonZeroUsize::new(4).unwrap(),
-            )
-            .unwrap(),
+            yield_overlaps(&["한국어", "hello", "你好", "わたし"], 4,).unwrap(),
             [
                 Some("한국어".to_string()),
                 Some("hello".to_string()),
@@ -105,23 +150,24 @@ mod tests {
                 Some("한국어 hello 你好 わたし".to_string())
             ]
         );
+    }
 
-        // Any empty lines should have been removed prior
+    #[test]
+    fn test_yield_overlaps_empty_string() {
         assert!(matches!(
-            yield_overlaps(&["hello", "", "world"], NonZeroUsize::new(2).unwrap()),
-            Err(BertAlignError::EmptyStringError)
+            yield_overlaps(&["hello", "", "world"], 2),
+            Err(YieldOverlapError::NonEmptyStringError(_))
         ));
+    }
 
-        // The overlap count should not be larger than the number of actual sentences
-        assert_eq!(
-            yield_overlaps(&["hi"], NonZeroUsize::new(5).unwrap()).unwrap(),
-            [Some("hi".to_string())]
-        );
-
-        // Empty lists should just be empty
-        assert_eq!(
-            yield_overlaps(&[], NonZeroUsize::new(5).unwrap()).unwrap(),
-            []
-        );
+    #[test]
+    fn test_yield_overlaps_overlap_exceeds_lc() {
+        assert!(matches!(
+            yield_overlaps(&["hi"], 5),
+            Err(YieldOverlapError::OverlapsExceedsLineCount {
+                num_overlaps: 5,
+                line_count: 1
+            })
+        ));
     }
 }

@@ -1,6 +1,6 @@
 [project]
 name = "bertalign_rs"
-version = "0.0.1"
+version = "0.1.0"
 description = "Rust port of Bertalign."
 authors = [{ name = "Teryn Jones" }]
 requires-python = ">=3.9"
@@ -10,12 +10,16 @@ Homepage = "https://github.com/jwnz/bertalign-rs"
 Repository = "https://github.com/jwnz/bertalign-rs"
 Issues = "https://github.com/jwnz/bertalign-rs/issues"
 
-
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
+[project.optional-dependencies]
+cuda = []
+mkl = []
+
+
 [tool.maturin]
-features = ["pyo3/extension-module", "bertalign-rs/cuda"]
+features = ["pyo3/extension-module"]
 bindings = "pyo3"
 python-source = "pysrc"

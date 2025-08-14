@@ -1,14 +1,23 @@
 # Bertalign-rs
 
-Rust port of [bertalign](https://github.com/bfsujason/bertalign), an automatic multilingual sentence aligner, with [Python](#python) bindings.
+Python bindings to a Rust port of [bertalign](https://github.com/bfsujason/bertalign), an automatic multilingual sentence aligner.
  
 **Install**
 
-You can install the python package as follows. This installs CUDA support by default.
+You can install the python package by first building with maturin then installing the whl file. You may have to specify your python interpreter version as shown below.
 
 ```bash
 cd bindings/python
-pip install . 
+maturin build --release
+
+# specify python version
+maturin build --release --interpreter python3.10
+
+# enable cuda
+maturin build --release --features cuda
+
+# enable mkl
+maturin build --release --features mkl
 ```
 
 **Usage**
@@ -16,8 +25,7 @@ pip install .
 ```python
 import bertalign_rs
 labse = bertalign_rs.LaBSE(batch_size=32)
-args = bertalign_rs.BertAlignArgs(top_k=3)
-aligner = bertalign_rs.BertAlign(labse, args)
+aligner = bertalign_rs.BertAlign(labse, top_k=3, max_align=5)
 
 src = [
     "The weather was warm and sunny.",
@@ -45,13 +53,24 @@ for src_list, tgt_list in aligner.align(src, tgt):
 
 **Embedding**
 
-You can use the model for embedding text and get the vectors as `list[list[float]]`
+You can use the model for embedding text and get the vectors as `list[list[float]]`. 
 
 ```Python
 embeddings = labse.embed(src)
 
 print(embeddings[0][:5])
 # [-0.0358, -0.0017, 0.0394, -0.0324, 0.0072]
+```
+
+The cosine similarity function is also exposed, and it's non-blocking too!
+
+```Python
+# get the embeddings
+a = labse.embed(["Good Morning"])[0]
+b = labse.embed(["Guten Morgen"])[0]
+
+# calculate their similarity
+bertalign_rs.cosine_similarity(a, b)
 ```
 
 **Free gpu memory**

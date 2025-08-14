@@ -2,3 +2,4 @@
 .vscode
 *.swp
 *.ipynb
+.DS_Store
