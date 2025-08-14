@@ -536,7 +536,7 @@ pub fn find_top_k_sents(
     src_vecs: &[Vec<Vec<f32>>],
     tgt_vecs: &[Vec<Vec<f32>>],
     top_k: usize,
-) -> Result<(Vec<Vec<f32>>, Vec<Vec<usize>>)> {
+) -> Result<(Vec<Vec<f32>>, Vec<Vec<usize>>), FindTopKError> {
     // The first index here grabs the non concatenated sentences
     // also embedding shouldn't be empty
     let src_vecs = src_vecs
@@ -659,38 +659,97 @@ mod tests {
         let top_k = 1;
         let (_, indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k).unwrap();
         assert_eq!(indicies, [[0], [1]]);
+    }
+
+    #[test]
+    fn test_find_topk_topk_longer_than_sent_cnt() {
+        let src_vecs = vec![vec![
+            vec![1.0, 0.0], // src 1
+            vec![0.0, 1.0], // src 2
+        ]];
+        let tgt_vecs = vec![vec![
+            vec![1.0, 0.0], // tgt 1
+            vec![0.0, 1.0], // tgt 2
+            vec![1.0, 1.0], // tgt 3
+        ]];
 
         // top_k might be larger than size of tgt_vecs
         let top_k = 100;
         let (_, indicies) = find_top_k_sents(&src_vecs, &tgt_vecs, top_k).unwrap();
         assert_eq!(indicies, [[0, 2, 1], [1, 2, 0]]);
+    }
 
-        // The embeddings should never be empty
+    #[test]
+    fn test_find_topk_empty_embeddings() {
+        let src_vecs = vec![vec![
+            vec![1.0, 0.0], // src 1
+            vec![0.0, 1.0], // src 2
+        ]];
         let empty_embeddings = vec![];
         assert!(matches!(
-            find_top_k_sents(&src_vecs, &empty_embeddings, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            find_top_k_sents(&src_vecs, &empty_embeddings, 3),
+            Err(FindTopKError::EmbeddingsCantBeEmpty)
         ));
         assert!(matches!(
-            find_top_k_sents(&empty_embeddings, &src_vecs, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
-        ));
-        assert!(matches!(
-            find_top_k_sents(&empty_embeddings, &empty_embeddings, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
-        ));
-
-        // The internal embeddings also shouldn't be empty
-        let internal_empty_embeddings = vec![vec![]];
-        assert!(matches!(
-            find_top_k_sents(&src_vecs, &internal_empty_embeddings, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
-        ));
-        assert!(matches!(
-            find_top_k_sents(&internal_empty_embeddings, &src_vecs, top_k),
-            Err(BertAlignError::EmptyEmbeddingsError(_))
+            find_top_k_sents(&empty_embeddings, &src_vecs, 3),
+            Err(FindTopKError::EmbeddingsCantBeEmpty)
         ));
     }
+
+    #[test]
+    fn test_find_topk_empty_token_embeddings() {
+        let src_vecs = vec![
+            vec![], // no token embeddings
+        ];
+        assert!(matches!(
+            find_top_k_sents(&src_vecs, &src_vecs, 3),
+            Err(FindTopKError::TokenLevelEmbeddingsCantBeEmpty)
+        ));
+    }
+
+    #[test]
+    fn test_find_topk_different_size_token_embeddings() {
+        let src_vecs = vec![vec![
+            vec![1.0, 0.0], // src 1
+            vec![0.0, 1.0], // src 2
+        ]];
+
+        let tgt_vecs = vec![vec![
+            vec![1.0], // tgt 1
+            vec![0.0], // tgt 2
+        ]];
+        assert!(matches!(
+            find_top_k_sents(&src_vecs, &tgt_vecs, 3),
+            Err(FindTopKError::CosineSimilarityError(_))
+        ));
+    }
+
+    //    // The embeddings should never be empty
+    //    let empty_embeddings = vec![];
+    //    assert!(matches!(
+    //        find_top_k_sents(&src_vecs, &empty_embeddings, top_k),
+    //        Err(BertAlignError::EmptyEmbeddingsError(_))
+    //    ));
+    //    assert!(matches!(
+    //        find_top_k_sents(&empty_embeddings, &src_vecs, top_k),
+    //        Err(BertAlignError::EmptyEmbeddingsError(_))
+    //    ));
+    //    assert!(matches!(
+    //        find_top_k_sents(&empty_embeddings, &empty_embeddings, top_k),
+    //        Err(BertAlignError::EmptyEmbeddingsError(_))
+    //    ));
+    //
+    //    // The internal embeddings also shouldn't be empty
+    //    let internal_empty_embeddings = vec![vec![]];
+    //    assert!(matches!(
+    //        find_top_k_sents(&src_vecs, &internal_empty_embeddings, top_k),
+    //        Err(BertAlignError::EmptyEmbeddingsError(_))
+    //    ));
+    //    assert!(matches!(
+    //        find_top_k_sents(&internal_empty_embeddings, &src_vecs, top_k),
+    //        Err(BertAlignError::EmptyEmbeddingsError(_))
+    //    ));
+    //}
 
     #[test]
     fn test_transform() {

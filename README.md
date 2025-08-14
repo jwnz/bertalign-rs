@@ -66,11 +66,20 @@ fn main() -> error::Result<()> {
  
 **Install**
 
-You can install the python package as follows. This installs CUDA support by default.
+You can install the python package by first building with maturin then installing the whl file. You may have to specify your python interpreter version as shown below.
 
 ```bash
 cd bindings/python
-pip install . 
+maturin build --release
+
+# specify python version
+maturin build --release --interpreter python3.10
+
+# enable cuda
+maturin build --release --features cuda
+
+# enable mkl
+maturin build --release --features mkl
 ```
 
 **Usage**
