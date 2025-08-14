@@ -721,53 +721,59 @@ mod tests {
         ));
     }
 
-    //#[test]
-    //fn test_transform() {
-    //    let sents = vec!["a", "b", "c"];
-    //    let num_overlaps = 3;
-    //    let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps);
-    //
-    //    let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
-    //
-    //    let (embeddings, lengths) = transform(&model, &sents, num_overlaps).unwrap();
-    //    assert_eq!(
-    //        embeddings,
-    //        [
-    //            [[0.1, 0.2, 0.3], [0.1, 0.2, 0.3], [0.1, 0.2, 0.3]],
-    //            [[0.0, 0.0, 0.0], [0.1, 0.2, 0.3], [0.1, 0.2, 0.3]],
-    //            [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.1, 0.2, 0.3]]
-    //        ]
-    //    );
-    //    assert_eq!(lengths, [[1, 1, 1], [0, 3, 3], [0, 0, 5]]);
-    //
-    //    // The model shouldn't be allowed to return empty embeddings
-    //    let embeddings = vec![];
-    //    let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
-    //    assert!(matches!(
-    //        transform(&model, &sents, num_overlaps),
-    //        Err(BertAlignError::EmptyEmbeddingsError(_))
-    //    ));
-    //
-    //    // The input sentence count shouldn't be different from whatever the model returns
-    //    let embeddings = vec![vec![0.1, 0.2, 0.3], vec![0.1, 0.2, 0.3]];
-    //    let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
-    //    assert!(matches!(
-    //        transform(&model, &sents, num_overlaps),
-    //        Err(BertAlignError::EmbeddingsLengthMismatchError(_))
-    //    ));
-    //
-    //    // example where the embeddings is longer than the input sentences
-    //    let embeddings = vec![
-    //        vec![0.1, 0.2, 0.3],
-    //        vec![0.1, 0.2, 0.3],
-    //        vec![0.1, 0.2, 0.3],
-    //        vec![0.1, 0.2, 0.3],
-    //        vec![0.1, 0.2, 0.3],
-    //    ];
-    //    let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
-    //    assert!(matches!(
-    //        transform(&model, &sents, num_overlaps),
-    //        Err(BertAlignError::EmbeddingsLengthMismatchError(_))
-    //    ));
-    //}
+    #[test]
+    fn test_transform() {
+        let sents = vec!["a", "b", "c"];
+        let num_overlaps = 3;
+        let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps);
+
+        let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
+
+        let (embeddings, lengths) = transform(&model, &sents, num_overlaps).unwrap();
+        assert_eq!(
+            embeddings,
+            [
+                [[0.1, 0.2, 0.3], [0.1, 0.2, 0.3], [0.1, 0.2, 0.3]],
+                [[0.0, 0.0, 0.0], [0.1, 0.2, 0.3], [0.1, 0.2, 0.3]],
+                [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.1, 0.2, 0.3]]
+            ]
+        );
+        assert_eq!(lengths, [[1, 1, 1], [0, 3, 3], [0, 0, 5]]);
+    }
+
+    #[test]
+    fn test_transform_embeddings_empty() {
+        // The model shouldn't be allowed to return empty embeddings
+        let embeddings = vec![];
+        let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
+        assert!(matches!(
+            transform(&model, &["hello"], 1),
+            Err(TransformError::EmbeddingsCantBeEmpty)
+        ));
+    }
+
+    #[test]
+    fn test_transform_embedding_sentlen_dont_match() {
+        // Let's create the scenario where we have 3 input sentences, and num_overlaps = 3.
+        // This will give us 3 * 3 - 2! = 7 embeddable sentences, with a total of 9 overlaps.
+        let sents = vec!["a", "b", "c"];
+        let num_overlaps = 3;
+
+        // However, consider for whatever reason, we only have 5 embeddings returned from the embedding model.
+        // We loop based on the num_overlaps, adding a zero vector for the padding, and the
+        // corresponding embedded vector for the embeddable overlap/sentence to the final result
+        // embedding list. If the model only returned 5 embeddings, then when indexing to get the
+        // embedding for the 6th overlap/sentence, we will get an index error.
+        let embeddings = vec![
+            vec![0.1, 0.2, 0.3],
+            vec![0.1, 0.2, 0.3],
+            vec![0.1, 0.2, 0.3],
+            vec![0.1, 0.2, 0.3],
+        ];
+        let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
+        assert!(matches!(
+            transform(&model, &sents, num_overlaps),
+            Err(TransformError::SentenceEmbeddingIndexOutOfBounds(4))
+        ));
+    }
 }
