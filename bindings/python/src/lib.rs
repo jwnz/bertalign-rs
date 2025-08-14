@@ -1,30 +1,27 @@
+mod error;
+
 use std::sync::Arc;
 
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 use bertalign_rs::aligner::{Aligner, AlignerBuilder};
 use bertalign_rs::embed::{Embed, LaBSE};
-use bertalign_rs::error;
-use bertalign_rs::error::BertAlignError;
+use bertalign_rs::error::CosineSimilarityError;
 use bertalign_rs::similarity;
 
-pub struct BertAlignErrorWrapper(error::BertAlignError);
-impl From<BertAlignError> for BertAlignErrorWrapper {
-    fn from(other: BertAlignError) -> Self {
-        Self(other)
-    }
-}
-impl From<BertAlignErrorWrapper> for PyErr {
-    fn from(error: BertAlignErrorWrapper) -> Self {
-        PyValueError::new_err(error.0.to_string())
-    }
-}
+use crate::error::{
+    AlignBuilderErrorWrapper, BertAlignErrorWrapper, CosineSimilarityErrorWrapper,
+    EmbeddingErrorWrapper, LabseErrorWrapper,
+};
 
 #[pyfunction]
-fn cosine_similarity(py: Python, a: Vec<f32>, b: Vec<f32>) -> Result<f32, BertAlignErrorWrapper> {
+fn cosine_similarity(
+    py: Python,
+    a: Vec<f32>,
+    b: Vec<f32>,
+) -> Result<f32, CosineSimilarityErrorWrapper> {
     py.allow_threads(|| {
-        similarity::cosine_similarity(&a, &b).map_err(|err| BertAlignError::from(err).into())
+        similarity::cosine_similarity(&a, &b).map_err(|err| CosineSimilarityError::from(err).into())
     })
 }
 
@@ -36,7 +33,7 @@ pub struct LaBSEWrapper(Arc<LaBSE>);
 impl LaBSEWrapper {
     #[new]
     #[pyo3(signature = (use_safetensors=true, batch_size=32))]
-    pub fn new(use_safetensors: bool, batch_size: usize) -> Result<Self, BertAlignErrorWrapper> {
+    pub fn new(use_safetensors: bool, batch_size: usize) -> Result<Self, LabseErrorWrapper> {
         Ok(LaBSEWrapper(Arc::new(LaBSE::new(
             Some(use_safetensors),
             Some(batch_size),
@@ -47,7 +44,7 @@ impl LaBSEWrapper {
         &self,
         py: Python<'_>,
         sents: Vec<String>,
-    ) -> Result<Vec<Vec<f32>>, BertAlignErrorWrapper> {
+    ) -> Result<Vec<Vec<f32>>, EmbeddingErrorWrapper> {
         // we need to convert the strings
         let sents: Vec<&str> = sents.iter().map(|s| s.as_str()).collect();
 
@@ -73,11 +70,11 @@ impl BertAlignWrapper {
         skip: f32,
         margin: bool,
         len_penalty: bool,
-    ) -> Result<Self, BertAlignErrorWrapper> {
+    ) -> Result<Self, AlignBuilderErrorWrapper> {
         #[rustfmt::skip]
         let builder = AlignerBuilder::new(embed.0.clone())
-            .max_align(max_align).map_err(|err| BertAlignError::from(err))?
-            .top_k(top_k).map_err(|err| BertAlignError::from(err))?
+            .max_align(max_align)?
+            .top_k(top_k)?
             .win(win)
             .skip(skip)
             .margin(margin)
