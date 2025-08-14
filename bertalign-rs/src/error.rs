@@ -1,48 +1,58 @@
 use thiserror::Error;
 
-pub type Result<T, E = BertAlignError> = std::result::Result<T, E>;
-
 #[derive(Error, Debug)]
 pub enum BertAlignError {
-    #[error("Embeddings must have the same length: {0}")]
-    EmbeddingsLengthMismatchError(String),
-
-    #[error("Embeddings cannot be empty: {0}")]
-    EmptyEmbeddingsError(String),
-
-    #[error("Value ({0}) must be nonzero")]
-    NonZeroValueError(String),
-
-    #[error("String cannot be empty")]
-    EmptyStringError,
-
-    #[error("YieldOverlapError: {0}")]
-    YieldOverlapError(#[from] YieldOverlapError),
-
-    #[error("CosineSimilarityError: {0}")]
-    CosineSimilarityError(#[from] CosineSimilarityError),
-
-    #[error("AlignBuilderError: {0}")]
-    AlignBuilderError(#[from] AlignBuilderError),
+    #[error("TransformError: {0}")]
+    TransformError(#[from] TransformError),
 
     #[error("FindTopKError: {0}")]
     FindTopKError(#[from] FindTopKError),
 
-    #[error("CandleError: {0}")]
-    CandleError(#[from] candle_core::error::Error),
-
-    #[error("TokenizersError: {0}")]
-    TokenizersError(#[from] tokenizers::Error),
-
-    #[error("HFHubError: {0}")]
-    HFHubError(#[from] hf_hub::api::sync::ApiError),
-
-    #[error("SerdeJsonError: {0}")]
-    SerdeJsonError(#[from] serde_json::Error),
-
-    #[error("IO Error: {0}")]
-    StdIOError(#[from] std::io::Error),
+    #[error("PlaceholderError: {0}")]
+    PlaceHolderError(#[from] PlaceholderError),
 }
+
+//#[derive(Error, Debug)]
+//pub enum BertAlignError {
+//    #[error("Embeddings must have the same length: {0}")]
+//    EmbeddingsLengthMismatchError(String),
+//
+//    #[error("Embeddings cannot be empty: {0}")]
+//    EmptyEmbeddingsError(String),
+//
+//    #[error("Value ({0}) must be nonzero")]
+//    NonZeroValueError(String),
+//
+//    #[error("String cannot be empty")]
+//    EmptyStringError,
+//
+//    #[error("YieldOverlapError: {0}")]
+//    YieldOverlapError(#[from] YieldOverlapError),
+//
+//    #[error("CosineSimilarityError: {0}")]
+//    CosineSimilarityError(#[from] CosineSimilarityError),
+//
+//    #[error("AlignBuilderError: {0}")]
+//    AlignBuilderError(#[from] AlignBuilderError),
+//
+//    #[error("FindTopKError: {0}")]
+//    FindTopKError(#[from] FindTopKError),
+//
+//    #[error("CandleError: {0}")]
+//    CandleError(#[from] candle_core::error::Error),
+//
+//    #[error("TokenizersError: {0}")]
+//    TokenizersError(#[from] tokenizers::Error),
+//
+//    #[error("HFHubError: {0}")]
+//    HFHubError(#[from] hf_hub::api::sync::ApiError),
+//
+//    #[error("SerdeJsonError: {0}")]
+//    SerdeJsonError(#[from] serde_json::Error),
+//
+//    #[error("IO Error: {0}")]
+//    StdIOError(#[from] std::io::Error),
+//}
 
 #[derive(Error, Debug)]
 pub enum AlignBuilderError {
@@ -91,6 +101,55 @@ pub enum FindTopKError {
     #[error("Token-level embeddings can't be empty")]
     TokenLevelEmbeddingsCantBeEmpty,
 
+    #[error("CosineSimilarityError: {0}")]
+    CosineSimilarityError(#[from] CosineSimilarityError),
+}
+
+#[derive(Error, Debug)]
+pub enum TransformError {
+    #[error("Embeddings can't be empty")]
+    EmbeddingsCantBeEmpty,
+
+    #[error("Index ({0}) out of bounds error for sentence_embeddings")]
+    SentenceEmbeddingIndexOutOfBounds(usize),
+
+    #[error("YieldOverlapError: {0}")]
+    YieldOverlapError(#[from] YieldOverlapError),
+
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+
+    #[error("EmbeddingError: {0}")]
+    EmbeddingError(#[from] EmbeddingError),
+}
+
+#[derive(Error, Debug)]
+pub enum EmbeddingError {
+    #[error("LabseError: {0}")]
+    LabseError(#[from] LabseError),
+}
+
+#[derive(Error, Debug)]
+pub enum LabseError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+
+    #[error("TokenizersError: {0}")]
+    TokenizersError(#[from] tokenizers::Error),
+
+    #[error("HFHubError: {0}")]
+    HFHubError(#[from] hf_hub::api::sync::ApiError),
+
+    #[error("SerdeJsonError: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("IO Error: {0}")]
+    StdIOError(#[from] std::io::Error),
+}
+
+// placeholder until I figure out a better way to handle some errors
+#[derive(Debug, Error)]
+pub enum PlaceholderError {
     #[error("CosineSimilarityError: {0}")]
     CosineSimilarityError(#[from] CosineSimilarityError),
 }

@@ -100,10 +100,11 @@ impl Aligner {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::EmbeddingError;
 
     struct MockModel;
     impl Embed for MockModel {
-        fn embed(&self, _lines: &[&str]) -> Result<Vec<Vec<f32>>, BertAlignError> {
+        fn embed(&self, _lines: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
             Ok(vec![vec![]])
         }
     }
