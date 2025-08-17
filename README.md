@@ -11,9 +11,11 @@ You can build with cuda support or mkl support by adding the feature flags, `cud
 cargo build --release --features cuda
 ```
 
+note: batch_size refers to the max number of tokens in a batch
+
 ```rust
 fn main() -> error::Result<()> {
-    let labse = Arc::new()LaBSE::new(Some(true), Some(32)).unwrap(); // embedding batch_size = 32
+    let labse = Arc::new()LaBSE::new(Some(true), Some(2048)).unwrap(); // embedding batch_size = 2048
     let aligner = AlignerBuilder::new(embedding_model.clone())
             .max_align(5)?
             .top_k(3)?
@@ -84,9 +86,11 @@ maturin build --release --features mkl
 
 **Usage**
 
+note: batch_size refers to the max number of tokens in a batch
+
 ```python
 import bertalign_rs
-labse = bertalign_rs.LaBSE(batch_size=32)
+labse = bertalign_rs.LaBSE(batch_size=2048)
 aligner = bertalign_rs.BertAlign(labse, top_k=3, max_align=5)
 
 src = [
