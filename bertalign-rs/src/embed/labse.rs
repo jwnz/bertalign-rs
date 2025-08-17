@@ -75,7 +75,7 @@ impl LaBSE {
         // load model & set padding params
         let mut tokenizer = Tokenizer::from_file(tokenizer_filename)?;
         tokenizer.with_truncation(Some(TruncationParams {
-            max_length: batch_size,
+            max_length: config.max_position_embeddings, // the max for LaBSE is 512
             strategy: tokenizers::TruncationStrategy::LongestFirst,
             direction: tokenizers::TruncationDirection::Right,
             stride: 0,
