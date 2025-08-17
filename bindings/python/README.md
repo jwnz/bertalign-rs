@@ -22,9 +22,11 @@ maturin build --release --features mkl
 
 **Usage**
 
+note: batch_size refers to the max number of tokens in a batch
+
 ```python
 import bertalign_rs
-labse = bertalign_rs.LaBSE(batch_size=32)
+labse = bertalign_rs.LaBSE(batch_size=2048)
 aligner = bertalign_rs.BertAlign(labse, top_k=3, max_align=5)
 
 src = [
