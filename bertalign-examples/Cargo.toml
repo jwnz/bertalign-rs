@@ -1,0 +1,7 @@
+[package]
+name = "bertalign-examples"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bertalign-rs = { workspace = true }
