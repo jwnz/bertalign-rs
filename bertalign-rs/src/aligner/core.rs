@@ -84,6 +84,8 @@ pub fn transform(
     sents: &[&str],
     num_overlaps: usize,
 ) -> Result<(Vec<Vec<Vec<f32>>>, Vec<Vec<usize>>), TransformError> {
+    let num_overlaps = std::cmp::min(sents.len(), num_overlaps);
+
     let overlaps = utils::yield_overlaps(&sents, num_overlaps)?;
 
     // actually embeddable text segments
@@ -775,5 +777,17 @@ mod tests {
             transform(&model, &sents, num_overlaps),
             Err(TransformError::SentenceEmbeddingIndexOutOfBounds(4))
         ));
+    }
+
+    #[test]
+    fn test_transform_num_overlap_exceeds_sentence_count() {
+        let sents = vec!["a"];
+        let num_overlaps = 5;
+        let model: Arc<dyn Embed + Send + Sync> =
+            Arc::new(MockEmbedder::new(vec![vec![0.1, 0.2, 0.3]]));
+        let (embeddings, lengths) = transform(&model, &sents, num_overlaps).unwrap();
+
+        assert_eq!(embeddings, [[[0.1, 0.2, 0.3]]]);
+        assert_eq!(lengths, [[1 as usize]]);
     }
 }
