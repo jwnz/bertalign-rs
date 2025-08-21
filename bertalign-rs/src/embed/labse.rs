@@ -1,6 +1,6 @@
 use candle_core::Tensor;
 use candle_nn::{linear, Linear, Module};
-use hf_hub::{api::sync::Api, Repo};
+use hf_hub::api::sync::Api;
 use serde_json;
 use tokenizers::{Tokenizer, TruncationParams};
 
@@ -41,8 +41,6 @@ impl LaBSE {
         use_safetensors: Option<bool>,
         batch_size: Option<usize>,
     ) -> Result<LaBSE, LabseError> {
-        let repo = Repo::model(model_name.to_string());
-
         let batch_size = match batch_size {
             Some(bsz) => bsz,
             None => 2048,
@@ -50,8 +48,7 @@ impl LaBSE {
 
         // download stuff from hf hub
         let (config_filename, tokenizer_filename, weights_filename) = {
-            let api = Api::new()?;
-            let api = api.repo(repo);
+            let api = Api::new()?.model(model_name.to_string());
             let config = api.get("config.json")?;
             let tokenizer = api.get("tokenizer.json")?;
             let weights = match use_safetensors {
