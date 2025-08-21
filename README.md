@@ -6,7 +6,7 @@ Rust port of [bertalign](https://github.com/bfsujason/bertalign), an automatic m
 
 **building**
 
-You can build with cuda support or mkl support by adding the feature flags, `cuda` or `mkl`.
+You can build with cuda support or mkl support by adding the feature flags, `cuda`, `mkl`, `metal`.
 ```bash
 cargo build --release --features cuda
 ```
@@ -82,6 +82,9 @@ maturin build --release --features cuda
 
 # enable mkl
 maturin build --release --features mkl
+
+# enable metal
+maturin build --release features metal
 ```
 
 **Usage**

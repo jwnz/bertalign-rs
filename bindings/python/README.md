@@ -18,6 +18,9 @@ maturin build --release --features cuda
 
 # enable mkl
 maturin build --release --features mkl
+
+# enable metal
+maturin build --release --features metal
 ```
 
 **Usage**
