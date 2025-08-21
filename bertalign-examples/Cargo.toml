@@ -5,3 +5,8 @@ edition.workspace = true
 
 [dependencies]
 bertalign-rs = { workspace = true }
+
+[features]
+metal = ["bertalign-rs/metal"]
+cuda = ["bertalign-rs/cuda"]
+mkl = ["bertalign-rs/mkl"]

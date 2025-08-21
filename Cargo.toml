@@ -3,8 +3,8 @@ resolver = "2"
 members = ["bindings/python", "bertalign-rs", "bertalign-examples"]
 
 [workspace.package]
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 
 [workspace.dependencies]
-bertalign-rs = { path = "./bertalign-rs", version = "0.1.2" }
+bertalign-rs = { path = "./bertalign-rs" }
