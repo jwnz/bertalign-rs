@@ -1,5 +1,6 @@
 pub mod bert;
 pub mod labse;
+mod utils;
 
 pub use crate::embed::labse::LaBSE;
 use crate::error::EmbeddingError;

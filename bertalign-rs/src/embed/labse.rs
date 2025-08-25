@@ -1,4 +1,4 @@
-use candle_core::Tensor;
+use candle_core::{Device, Tensor};
 use candle_nn::{linear, Linear, Module};
 use hf_hub::api::sync::Api;
 use serde_json;
@@ -7,6 +7,17 @@ use tokenizers::{Tokenizer, TruncationParams};
 use super::bert::{BertModel, Config, DTYPE};
 use crate::embed::Embed;
 use crate::error::{EmbeddingError, LabseError};
+
+const DEFAULT_BATCH_SIZE: usize = 2048;
+
+pub struct LaBSEBuilder {
+    model_id: String,
+    device: Device,
+}
+
+// impl LaBSEBuidler {
+//     pub fn device(device: &Device) -> Self {}
+// }
 
 pub struct LaBSE {
     pub tokenizer: Tokenizer,
@@ -228,4 +239,12 @@ impl Embed for LaBSE {
 
         Ok(embeddings)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_labse() {}
 }

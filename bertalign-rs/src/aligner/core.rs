@@ -378,6 +378,7 @@ pub fn second_pass_align(
                 let prev_j_offset = prev_j - prev_i_start;
                 let mut score = cost[prev_i][prev_j_offset];
 
+                #[allow(unused_assignments)]
                 let mut cur_score = 0.0;
                 if a_1 == 0 || a_2 == 0 {
                     cur_score = skip;
@@ -730,7 +731,7 @@ mod tests {
         let num_overlaps = 3;
         let embeddings = MockEmbedder::generate_embeddings(sents.len(), num_overlaps);
 
-        let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
+        let model: Arc<dyn Embed> = Arc::new(MockEmbedder::new(embeddings));
 
         let (embeddings, lengths) = transform(model.clone(), &sents, num_overlaps).unwrap();
         assert_eq!(
@@ -748,7 +749,7 @@ mod tests {
     fn test_transform_embeddings_empty() {
         // The model shouldn't be allowed to return empty embeddings
         let embeddings = vec![];
-        let model: Arc<dyn Embed + Send + Sync> = Arc::new(MockEmbedder::new(embeddings));
+        let model: Arc<dyn Embed> = Arc::new(MockEmbedder::new(embeddings));
         assert!(matches!(
             transform(model.clone(), &["hello"], 1),
             Err(TransformError::EmbeddingsCantBeEmpty)
@@ -784,8 +785,7 @@ mod tests {
     fn test_transform_num_overlap_exceeds_sentence_count() {
         let sents = vec!["a"];
         let num_overlaps = 5;
-        let model: Arc<dyn Embed + Send + Sync> =
-            Arc::new(MockEmbedder::new(vec![vec![0.1, 0.2, 0.3]]));
+        let model: Arc<dyn Embed> = Arc::new(MockEmbedder::new(vec![vec![0.1, 0.2, 0.3]]));
         let (embeddings, lengths) = transform(model.clone(), &sents, num_overlaps).unwrap();
 
         assert_eq!(embeddings, [[[0.1, 0.2, 0.3]]]);

@@ -105,6 +105,12 @@ pub enum LabseError {
     StdIOError(#[from] std::io::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum LoadSafeTensorError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+}
+
 // placeholder until I figure out a better way to handle some errors
 #[derive(Debug, Error)]
 pub enum PlaceholderError {
