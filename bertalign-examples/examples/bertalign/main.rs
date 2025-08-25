@@ -60,20 +60,20 @@ fn print_alignments(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let labse = Arc::new(LaBSE::new(Some(true), Some(2048)).unwrap());
-    let aligner = AlignerBuilder::new(labse.clone())
-        .max_align(5)?
-        .top_k(3)?
+    let aligner = AlignerBuilder::default()
+        .max_align(5)
+        .top_k(3)
         .win(5)
         .skip(-0.1)
         .margin(true)
         .len_penalty(true)
-        .build();
+        .build()?;
 
     let (en_sents, ko_sents, de_sents) = get_sentences();
 
-    let en2ko_alignments = aligner.align(&en_sents, &ko_sents)?;
-    let en2de_alignments = aligner.align(&en_sents, &de_sents)?;
-    let ko2de_alignments = aligner.align(&ko_sents, &de_sents)?;
+    let en2ko_alignments = aligner.align(labse.clone(), &en_sents, &ko_sents)?;
+    let en2de_alignments = aligner.align(labse.clone(), &en_sents, &de_sents)?;
+    let ko2de_alignments = aligner.align(labse.clone(), &ko_sents, &de_sents)?;
 
     print_alignments(&en_sents, &ko_sents, en2ko_alignments);
     print_alignments(&en_sents, &de_sents, en2de_alignments);
