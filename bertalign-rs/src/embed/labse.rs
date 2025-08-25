@@ -16,7 +16,7 @@ pub struct LaBSEBuilder {
 }
 
 // impl LaBSEBuidler {
-//     pub fn device(device: &Device) -> Self {}
+//     pub fn build(device: &Device) -> Self {}
 // }
 
 pub struct LaBSE {

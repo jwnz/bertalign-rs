@@ -111,6 +111,12 @@ pub enum LoadSafeTensorError {
     CandleError(#[from] candle_core::error::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum DownloadHFModel {
+    #[error("HFHubApiError: {0}")]
+    HFHubApiError(#[from] hf_hub::api::sync::ApiError),
+}
+
 // placeholder until I figure out a better way to handle some errors
 #[derive(Debug, Error)]
 pub enum PlaceholderError {
