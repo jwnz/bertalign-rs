@@ -1,6 +1,6 @@
 use candle_core::{DType, Device};
 use candle_nn::var_builder::{SimpleBackend, VarBuilderArgs};
-use hf_hub::api::sync::Api;
+use hf_hub::api::sync::{Api, ApiError};
 
 use std::path::PathBuf;
 
@@ -16,29 +16,15 @@ pub fn load_safetensors<'a>(
     Ok(unsafe { candle_nn::VarBuilder::from_mmaped_safetensors(&[filepath], dtype, device) }?)
 }
 
-pub enum DownloadType {
-    Tokenizer,
-    ModelConfig,
-    WeightsPyTorch,
-    WeightsSafeTensors,
-}
-
-impl DownloadType {
-    pub fn filename(&self) -> &'static str {
-        match self {
-            DownloadType::Tokenizer => "tokenizer.json",
-            DownloadType::ModelConfig => "config.json",
-            DownloadType::WeightsPyTorch => "pytorch_model.bin",
-            DownloadType::WeightsSafeTensors => "model.safetensors",
-        }
-    }
-}
-
-pub fn download_hf_model(
-    model_id: &str,
-    download_type: DownloadType,
-) -> Result<PathBuf, DownloadHFModel> {
-    let api = Api::new()?.model(model_id.to_string());
-    let filepath = api.get(download_type.filename())?;
+/// downloads a specific file from a specified HuggingFace Repo
+///
+/// ```no_run
+/// let path = download_hf_model("sentence-transformers/LaBSE", "config.json")?;
+/// println!("File downloaded to {:?}", path);
+/// ```
+pub fn download_hf_model(model_id: &str, filename: &str) -> Result<PathBuf, DownloadHFModel> {
+    let api = Api::new()?;
+    let model_repo = api.model(model_id.to_string());
+    let filepath = model_repo.get(filename)?;
     Ok(filepath)
 }
