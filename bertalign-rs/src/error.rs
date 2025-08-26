@@ -112,7 +112,7 @@ pub enum LoadSafeTensorError {
 }
 
 #[derive(Debug, Error)]
-pub enum DownloadHFModel {
+pub enum DownloadHFModelError {
     #[error("HFHubApiError: {0}")]
     HFHubApiError(#[from] hf_hub::api::sync::ApiError),
 }
