@@ -5,19 +5,56 @@ use serde_json;
 use tokenizers::{Tokenizer, TruncationParams};
 
 use super::bert::{BertModel, Config, DTYPE};
+use super::pooling::Pooling;
+use super::utils::{download_hf_model, load_safetensors};
 use crate::embed::Embed;
-use crate::error::{EmbeddingError, LabseError};
+use crate::error::{EmbeddingError, LabseError, SentenceTransformerBuilderError};
 
 const DEFAULT_BATCH_SIZE: usize = 2048;
 
-pub struct LaBSEBuilder {
+pub struct SentenceTransformerBuilder<P: Pooling> {
     model_id: String,
-    device: Device,
+    batch_size: Option<usize>,
+    device: Option<Device>,
+    pooling: Option<P>,
 }
 
-// impl LaBSEBuidler {
-//     pub fn build(device: &Device) -> Self {}
-// }
+impl<P: Pooling> SentenceTransformerBuilder<P> {
+    pub fn new(model_id: impl AsRef<str>) -> Self {
+        Self {
+            model_id: model_id.as_ref().to_string(),
+            batch_size: None,
+            device: None,
+            pooling: None,
+        }
+    }
+
+    pub fn batch_size(mut self, batch_size: usize) -> SentenceTransformerBuilder<P> {
+        self.batch_size = Some(batch_size);
+        self
+    }
+
+    pub fn with_device(mut self, device: &Device) -> SentenceTransformerBuilder<P> {
+        self.device = Some(device.clone());
+        self
+    }
+
+    pub fn with_pooling(mut self, pooling: P) -> SentenceTransformerBuilder<P> {
+        self.pooling = Some(pooling);
+        self
+    }
+
+    pub fn build(mut self) -> Result<(), SentenceTransformerBuilderError> {
+        let device = self
+            .device
+            .ok_or_else(|| SentenceTransformerBuilderError::DeviceNotSpecified)?;
+
+        let batch_size = self.batch_size.ok_or_else(|| )?;
+
+
+        Ok(())
+    }
+}
 
 pub struct LaBSE {
     pub tokenizer: Tokenizer,

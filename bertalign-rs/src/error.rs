@@ -117,6 +117,12 @@ pub enum DownloadHFModelError {
     HFHubApiError(#[from] hf_hub::api::sync::ApiError),
 }
 
+#[derive(Debug, Error)]
+pub enum SentenceTransformerBuilderError {
+    #[error("Device must be specified")]
+    DeviceNotSpecified,
+}
+
 // placeholder until I figure out a better way to handle some errors
 #[derive(Debug, Error)]
 pub enum PlaceholderError {

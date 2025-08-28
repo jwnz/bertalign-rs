@@ -23,5 +23,3 @@ pub fn download_hf_model(model_id: &str, filename: &str) -> Result<PathBuf, Down
     let filepath = model_repo.get(filename)?;
     Ok(filepath)
 }
-
-//pub fn collate()
