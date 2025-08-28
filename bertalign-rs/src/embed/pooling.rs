@@ -7,3 +7,5 @@ struct MeanPooling;
 impl Pooling for MeanPooling {
     fn pool() {}
 }
+
+struct SentenceTransformerPooling;

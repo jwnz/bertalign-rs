@@ -49,8 +49,7 @@ impl<P: Pooling> SentenceTransformerBuilder<P> {
             .device
             .ok_or_else(|| SentenceTransformerBuilderError::DeviceNotSpecified)?;
 
-        let batch_size = self.batch_size.ok_or_else(|| )?;
-
+        let batch_size = self.batch_size.ok_or_else(|| DEFAULT_BATCH_SIZE);
 
         Ok(())
     }
