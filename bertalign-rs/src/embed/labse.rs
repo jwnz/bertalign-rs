@@ -4,55 +4,108 @@ use hf_hub::api::sync::Api;
 use serde_json;
 use tokenizers::{Tokenizer, TruncationParams};
 
-use super::bert::{BertModel, Config, DTYPE};
-use super::pooling::Pooling;
-use super::utils::{download_hf_model, load_safetensors};
+use super::{
+    bert::{BertModel, Config, DTYPE},
+    pooling,
+    pooling::PoolingStrategy,
+    utils::{download_hf_model, load_safetensors},
+};
 use crate::embed::Embed;
 use crate::error::{EmbeddingError, LabseError, SentenceTransformerBuilderError};
 
 const DEFAULT_BATCH_SIZE: usize = 2048;
+const DEFAULT_WITH_SAFETENSORS: bool = false;
 
-pub struct SentenceTransformerBuilder<P: Pooling> {
+pub struct SentenceTransformerBuilder {
     model_id: String,
+    with_safetensors: bool,
     batch_size: Option<usize>,
     device: Option<Device>,
-    pooling: Option<P>,
+    pooling: Option<pooling::Which>,
 }
 
-impl<P: Pooling> SentenceTransformerBuilder<P> {
+impl SentenceTransformerBuilder {
     pub fn new(model_id: impl AsRef<str>) -> Self {
         Self {
             model_id: model_id.as_ref().to_string(),
+            with_safetensors: DEFAULT_WITH_SAFETENSORS,
             batch_size: None,
             device: None,
             pooling: None,
         }
     }
 
-    pub fn batch_size(mut self, batch_size: usize) -> SentenceTransformerBuilder<P> {
+    pub fn batch_size(mut self, batch_size: usize) -> SentenceTransformerBuilder {
         self.batch_size = Some(batch_size);
         self
     }
 
-    pub fn with_device(mut self, device: &Device) -> SentenceTransformerBuilder<P> {
+    pub fn with_safetensors(mut self) -> SentenceTransformerBuilder {
+        self.with_safetensors = true;
+        self
+    }
+
+    pub fn with_device(mut self, device: &Device) -> SentenceTransformerBuilder {
         self.device = Some(device.clone());
         self
     }
 
-    pub fn with_pooling(mut self, pooling: P) -> SentenceTransformerBuilder<P> {
+    pub fn with_pooling(mut self, pooling: pooling::Which) -> SentenceTransformerBuilder {
         self.pooling = Some(pooling);
         self
     }
 
-    pub fn build(mut self) -> Result<(), SentenceTransformerBuilderError> {
+    pub fn build(self) -> Result<SentenceTransformer, SentenceTransformerBuilderError> {
+        // do our checks first
         let device = self
             .device
             .ok_or_else(|| SentenceTransformerBuilderError::DeviceNotSpecified)?;
 
-        let batch_size = self.batch_size.ok_or_else(|| DEFAULT_BATCH_SIZE);
+        let pooling_method = self
+            .pooling
+            .ok_or_else(|| SentenceTransformerBuilderError::PoolingMethodNotSpecified)?;
 
-        Ok(())
+        // Try to download the relevant files from hugginface hub
+        let config_filename = download_hf_model(&self.model_id, "config.json")?;
+        let tokenizer_filename = download_hf_model(&self.model_id, "tokenizer.json")?;
+        let weights_filename = if self.with_safetensors {
+            download_hf_model(&self.model_id, "model.safetensors")?
+        } else {
+            download_hf_model(&self.model_id, "pytorch_model.bin")?
+        };
+
+        let pooling = linear::linear(768, 768, vb.pp("pooler.dense"))?;
+        let bert = BertModel::load(vb, &config)?;
+
+        let pooler = match pooling_method {
+            pooling::Which::MeanPooling => PoolingStrategy::MeanPooling,
+            pooling::Which::SentenceTransformerPooling {
+                hf_hub_config_path: path,
+            } => {
+                let pooling_config_filename = download_hf_model(&self.model_id, &path)?;
+
+                todo!()
+            }
+        };
+
+        let batch_size = self.batch_size.unwrap_or(DEFAULT_BATCH_SIZE);
+
+        Ok(SentenceTransformer {
+            model_id: self.model_id,
+            batch_size: batch_size,
+            device: device,
+            pooling: pooler,
+        })
     }
+}
+
+pub struct SentenceTransformer {
+    model_id: String,
+    batch_size: usize,
+    device: Device,
+    tokenizer: Tokenizer,
+    bert: BertModel,
+    pooling: PoolingStrategy,
 }
 
 pub struct LaBSE {

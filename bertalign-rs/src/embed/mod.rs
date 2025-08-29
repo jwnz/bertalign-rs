@@ -1,7 +1,6 @@
 pub mod bert;
 pub mod labse;
 pub mod pooling;
-pub mod types;
 mod utils;
 
 pub use crate::embed::labse::LaBSE;

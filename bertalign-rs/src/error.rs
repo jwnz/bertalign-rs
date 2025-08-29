@@ -121,6 +121,18 @@ pub enum DownloadHFModelError {
 pub enum SentenceTransformerBuilderError {
     #[error("Device must be specified")]
     DeviceNotSpecified,
+
+    #[error("Pooling method must be specified")]
+    PoolingMethodNotSpecified,
+
+    #[error("DownloadHFModelError: {0}")]
+    DownloadHFModelError(#[from] DownloadHFModelError),
+}
+
+#[derive(Debug, Error)]
+pub enum PoolingError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
 }
 
 // placeholder until I figure out a better way to handle some errors
