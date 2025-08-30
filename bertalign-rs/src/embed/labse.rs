@@ -10,7 +10,7 @@ use super::{
     pooling::PoolingStrategy,
     utils::{download_hf_model, load_safetensors},
 };
-use crate::embed::Embed;
+use crate::embed::{pooling::SentenceTransformersPoolingConfig, Embed};
 use crate::error::{EmbeddingError, LabseError, SentenceTransformerBuilderError};
 
 const DEFAULT_BATCH_SIZE: usize = 2048;
@@ -65,28 +65,53 @@ impl SentenceTransformerBuilder {
             .pooling
             .ok_or_else(|| SentenceTransformerBuilderError::PoolingMethodNotSpecified)?;
 
-        // Try to download the relevant files from hugginface hub
+        // Load the model config
         let config_filename = download_hf_model(&self.model_id, "config.json")?;
+        let config = serde_json::from_str::<Config>(&std::fs::read_to_string(config_filename)?)?;
+
+        // Load the Tokenizer
         let tokenizer_filename = download_hf_model(&self.model_id, "tokenizer.json")?;
-        let weights_filename = if self.with_safetensors {
-            download_hf_model(&self.model_id, "model.safetensors")?
+        let mut tokenizer = Tokenizer::from_file(tokenizer_filename)?;
+        tokenizer.with_truncation(Some(TruncationParams {
+            max_length: config.max_position_embeddings, // the max for LaBSE is 512
+            strategy: tokenizers::TruncationStrategy::LongestFirst,
+            direction: tokenizers::TruncationDirection::Right,
+            stride: 0,
+        }))?;
+
+        // Load the VarBuilder for loading model weights
+        let vb = if self.with_safetensors {
+            let weights_filename = download_hf_model(&self.model_id, "model.safetensors")?;
+            load_safetensors(&[weights_filename], DTYPE, &device)?
+            // candle_nn::VarBuilder::from_mmaped_safetensors
         } else {
-            download_hf_model(&self.model_id, "pytorch_model.bin")?
+            let weights_filename = download_hf_model(&self.model_id, "pytorch_model.bin")?;
+            candle_nn::VarBuilder::from_pth(&weights_filename, DTYPE, &device)?
         };
 
-        let pooling = linear::linear(768, 768, vb.pp("pooler.dense"))?;
-        let bert = BertModel::load(vb, &config)?;
-
+        // load the appropriate pooler
         let pooler = match pooling_method {
             pooling::Which::MeanPooling => PoolingStrategy::MeanPooling,
             pooling::Which::SentenceTransformerPooling {
                 hf_hub_config_path: path,
             } => {
+                // let config = std::fs::read_to_string(config_filename)?;
+                // let config: Config = serde_json::from_str(&config)?;
                 let pooling_config_filename = download_hf_model(&self.model_id, &path)?;
+                let pooling_config = serde_json::from_str::<SentenceTransformersPoolingConfig>(
+                    &std::fs::read_to_string(pooling_config_filename)?,
+                )?;
 
-                todo!()
+                let word_emb_size = pooling_config.word_embedding_dimension();
+                PoolingStrategy::SentenceTransformerPooling(linear::linear(
+                    word_emb_size,
+                    word_emb_size,
+                    vb.pp("pooler.dense"),
+                )?)
             }
         };
+
+        let bert = BertModel::load(vb, &config)?;
 
         let batch_size = self.batch_size.unwrap_or(DEFAULT_BATCH_SIZE);
 
@@ -94,6 +119,8 @@ impl SentenceTransformerBuilder {
             model_id: self.model_id,
             batch_size: batch_size,
             device: device,
+            tokenizer: tokenizer,
+            bert: bert,
             pooling: pooler,
         })
     }

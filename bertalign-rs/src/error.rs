@@ -127,6 +127,21 @@ pub enum SentenceTransformerBuilderError {
 
     #[error("DownloadHFModelError: {0}")]
     DownloadHFModelError(#[from] DownloadHFModelError),
+
+    #[error("IO Error: {0}")]
+    StdIOError(#[from] std::io::Error),
+
+    #[error("SerdeJsonError: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("LoadSafeTensorError: {0}")]
+    LoadSafeTensorError(#[from] LoadSafeTensorError),
+
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+
+    #[error("TokenizersError: {0}")]
+    TokenizersError(#[from] tokenizers::Error),
 }
 
 #[derive(Debug, Error)]

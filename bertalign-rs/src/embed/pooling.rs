@@ -1,5 +1,6 @@
 use candle_core::Tensor;
-use candle_nn::Linear;
+use candle_nn::{Linear, Module};
+use serde::Deserialize;
 
 use crate::error::PoolingError;
 
@@ -20,18 +21,25 @@ impl PoolingStrategy {
                 todo!()
             }
             PoolingStrategy::SentenceTransformerPooling(linear) => {
-                // first we get the embeddings from the cls
-                let cls_token_embeddings = last_hidden_state.get_on_dim(1, 0)?;
-                todo!()
+                let cls_pooling = last_hidden_state.get_on_dim(1, 0)?;
+                let emb = linear.forward(&cls_pooling)?.tanh()?;
+                Ok(emb.broadcast_div(&emb.sqr()?.sum_keepdim(1)?.sqrt()?)?)
             }
         }
     }
 }
 
-struct SentenceTransformersPoolingConfig {
+#[derive(Deserialize)]
+pub struct SentenceTransformersPoolingConfig {
     word_embedding_dimension: usize,
     pooling_mode_cls_token: bool,
     pooling_mode_mean_tokens: bool,
     pooling_mode_max_tokens: bool,
     pooling_mode_mean_sqrt_len_tokens: bool,
+}
+
+impl SentenceTransformersPoolingConfig {
+    pub fn word_embedding_dimension(&self) -> usize {
+        self.word_embedding_dimension
+    }
 }
