@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use bertalign_rs::{aligner::AlignerBuilder, embed::LaBSE};
+use bertalign_rs::aligner::AlignerBuilder;
+use bertalign_rs::embed::pooling;
+use bertalign_rs::embed::sentence_transformer::SentenceTransformerBuilder;
 
 fn get_sentences() -> (Vec<&'static str>, Vec<&'static str>, Vec<&'static str>) {
     let en_sents = vec![
@@ -59,7 +61,17 @@ fn print_alignments(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let labse = Arc::new(LaBSE::new(Some(true), Some(2048)).unwrap());
+    let device = candle_core::Device::new_cuda(0)?;
+    let model = SentenceTransformerBuilder::new("sentence-transformers/LaBSE")
+        .batch_size(2048)
+        .with_safetensors()
+        .with_device(&device)
+        .with_pooling(pooling::Which::SentenceTransformerPooling {
+            hf_hub_config_path: "1_Pooling/config.json".to_string(),
+        })
+        .build()?;
+    let model = Arc::new(model);
+
     let aligner = AlignerBuilder::default()
         .max_align(5)
         .top_k(3)
@@ -71,9 +83,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (en_sents, ko_sents, de_sents) = get_sentences();
 
-    let en2ko_alignments = aligner.align(labse.clone(), &en_sents, &ko_sents)?;
-    let en2de_alignments = aligner.align(labse.clone(), &en_sents, &de_sents)?;
-    let ko2de_alignments = aligner.align(labse.clone(), &ko_sents, &de_sents)?;
+    let en2ko_alignments = aligner.align(model.clone(), &en_sents, &ko_sents)?;
+    let en2de_alignments = aligner.align(model.clone(), &en_sents, &de_sents)?;
+    let ko2de_alignments = aligner.align(model.clone(), &ko_sents, &de_sents)?;
 
     print_alignments(&en_sents, &ko_sents, en2ko_alignments);
     print_alignments(&en_sents, &de_sents, en2de_alignments);

@@ -99,7 +99,7 @@ impl Aligner {
         src_sents: &[&str],
         tgt_sents: &[&str],
     ) -> Result<Vec<(Vec<usize>, Vec<usize>)>, BertAlignError> {
-        self._align(model, src_sents, tgt_sents)
+        self._align(model.clone(), src_sents, tgt_sents)
     }
 }
 

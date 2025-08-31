@@ -83,26 +83,17 @@ pub enum TransformError {
 
 #[derive(Error, Debug)]
 pub enum EmbeddingError {
-    #[error("LabseError: {0}")]
-    LabseError(#[from] LabseError),
-}
-
-#[derive(Error, Debug)]
-pub enum LabseError {
-    #[error("CandleError: {0}")]
-    CandleError(#[from] candle_core::error::Error),
-
     #[error("TokenizersError: {0}")]
     TokenizersError(#[from] tokenizers::Error),
 
-    #[error("HFHubError: {0}")]
-    HFHubError(#[from] hf_hub::api::sync::ApiError),
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
 
-    #[error("SerdeJsonError: {0}")]
-    SerdeJsonError(#[from] serde_json::Error),
+    #[error("PoolingError: {0}")]
+    PoolingError(#[from] PoolingError),
 
-    #[error("IO Error: {0}")]
-    StdIOError(#[from] std::io::Error),
+    #[error("FastTokenBatchError: {0}")]
+    FastTokenBatchError(#[from] FastTokenBatchError),
 }
 
 #[derive(Debug, Error)]
@@ -146,6 +137,12 @@ pub enum SentenceTransformerBuilderError {
 
 #[derive(Debug, Error)]
 pub enum PoolingError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum FastTokenBatchError {
     #[error("CandleError: {0}")]
     CandleError(#[from] candle_core::error::Error),
 }

@@ -21,7 +21,7 @@ impl PoolingStrategy {
                 todo!()
             }
             PoolingStrategy::SentenceTransformerPooling(linear) => {
-                let cls_pooling = last_hidden_state.get_on_dim(1, 0)?;
+                let cls_pooling = last_hidden_state.get_on_dim(1, 0)?.contiguous()?;
                 let emb = linear.forward(&cls_pooling)?.tanh()?;
                 Ok(emb.broadcast_div(&emb.sqr()?.sum_keepdim(1)?.sqrt()?)?)
             }
