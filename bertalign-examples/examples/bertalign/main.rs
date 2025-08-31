@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use bertalign_rs::aligner::AlignerBuilder;
-use bertalign_rs::embed::pooling;
-use bertalign_rs::embed::sentence_transformer::SentenceTransformerBuilder;
+use bertalign_rs::embed::sentence_transformer::{
+    SentenceTransformerBuilder, Which as SentenceTransformerWhich,
+};
 
 fn get_sentences() -> (Vec<&'static str>, Vec<&'static str>, Vec<&'static str>) {
     let en_sents = vec![
@@ -62,14 +63,12 @@ fn print_alignments(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let device = candle_core::Device::new_cuda(0)?;
-    let model = SentenceTransformerBuilder::new("sentence-transformers/LaBSE")
-        .batch_size(2048)
-        .with_safetensors()
-        .with_device(&device)
-        .with_pooling(pooling::Which::SentenceTransformerPooling {
-            hf_hub_config_path: "1_Pooling/config.json".to_string(),
-        })
-        .build()?;
+    let model = SentenceTransformerBuilder::with_sentence_transformer(
+        SentenceTransformerWhich::AllMiniLML6v2,
+    )
+    .batch_size(2048)
+    .with_device(&device)
+    .build()?;
     let model = Arc::new(model);
 
     let aligner = AlignerBuilder::default()

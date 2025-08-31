@@ -5,8 +5,8 @@ use tokenizers::{Tokenizer, TruncationParams};
 
 use super::{
     bert::{BertModel, Config, DTYPE},
-    pooling,
     pooling::PoolingStrategy,
+    pooling::Which as PoolingWhich,
     utils::{download_hf_model, load_safetensors},
 };
 use crate::embed::{pooling::SentenceTransformersPoolingConfig, utils, Embed};
@@ -15,12 +15,20 @@ use crate::error::{EmbeddingError, SentenceTransformerBuilderError};
 const DEFAULT_BATCH_SIZE: usize = 2048;
 const DEFAULT_WITH_SAFETENSORS: bool = false;
 
+pub enum Which {
+    AllMiniLML6v2,
+    AllMiniLML12v2,
+    ParaphraseMultilingualMiniLML6v2,
+    ParaphraseMultilingualMiniLML12v2,
+    LaBSE,
+}
+
 pub struct SentenceTransformerBuilder {
     model_id: String,
     with_safetensors: bool,
     batch_size: Option<usize>,
     device: Option<Device>,
-    pooling: Option<pooling::Which>,
+    pooling: Option<PoolingWhich>,
 }
 
 impl SentenceTransformerBuilder {
@@ -31,6 +39,24 @@ impl SentenceTransformerBuilder {
             batch_size: None,
             device: None,
             pooling: None,
+        }
+    }
+
+    pub fn with_sentence_transformer(model: Which) -> SentenceTransformerBuilder {
+        match model {
+            Which::LaBSE => SentenceTransformerBuilder::new("sentence-transformers/LaBSE")
+                .with_safetensors()
+                .with_pooling(PoolingWhich::SentenceTransformerPooling {
+                    hf_hub_config_path: "1_Pooling/config.json".to_string(),
+                }),
+            Which::AllMiniLML6v2 => {
+                SentenceTransformerBuilder::new("sentence-transformers/all-MiniLM-L6-v2")
+                    .with_safetensors()
+                    .with_pooling(PoolingWhich::SentenceTransformerPooling {
+                        hf_hub_config_path: "1_Pooling/config.json".to_string(),
+                    })
+            }
+            _ => todo!(),
         }
     }
 
@@ -49,7 +75,7 @@ impl SentenceTransformerBuilder {
         self
     }
 
-    pub fn with_pooling(mut self, pooling: pooling::Which) -> SentenceTransformerBuilder {
+    pub fn with_pooling(mut self, pooling: PoolingWhich) -> SentenceTransformerBuilder {
         self.pooling = Some(pooling);
         self
     }
@@ -90,8 +116,8 @@ impl SentenceTransformerBuilder {
 
         // load the appropriate pooler
         let pooler = match pooling_method {
-            pooling::Which::MeanPooling => PoolingStrategy::MeanPooling,
-            pooling::Which::SentenceTransformerPooling {
+            PoolingWhich::MeanPooling => PoolingStrategy::MeanPooling,
+            PoolingWhich::SentenceTransformerPooling {
                 hf_hub_config_path: path,
             } => {
                 let pooling_config_filename = download_hf_model(&self.model_id, &path)?;
