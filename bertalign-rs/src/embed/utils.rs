@@ -24,7 +24,7 @@ pub fn download_hf_model(model_id: &str, filename: &str) -> Result<PathBuf, Down
     Ok(filepath)
 }
 
-/// Below is the code for doing token-based batching
+/// Below is the code for doing token-based batching.
 /// Given input_ids, and some `batch_size`, we build batches such that
 /// the max number of tokens doesn't exceed `batch_size`. We also make
 /// sure that batches are in multiples of 8 for better GPU utilization.

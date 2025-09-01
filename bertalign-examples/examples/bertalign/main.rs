@@ -62,9 +62,13 @@ fn print_alignments(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "cuda")]
     let device = candle_core::Device::new_cuda(0)?;
+    #[cfg(not(feature = "cuda"))]
+    let device = candle_core::Device::Cpu;
+
     let model = SentenceTransformerBuilder::with_sentence_transformer(
-        SentenceTransformerWhich::AllMiniLML6v2,
+        SentenceTransformerWhich::ParaphraseMultilingualMiniLML12v2,
     )
     .batch_size(2048)
     .with_device(&device)

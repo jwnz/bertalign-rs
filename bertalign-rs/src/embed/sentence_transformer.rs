@@ -1,3 +1,5 @@
+use std::fmt;
+
 use candle_core::Device;
 use candle_nn::linear;
 use serde_json;
@@ -23,6 +25,25 @@ pub enum Which {
     LaBSE,
 }
 
+impl fmt::Display for Which {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Which::AllMiniLML6v2 => write!(f, "sentence-transformers/all-MiniLM-L6-v2"),
+            Which::AllMiniLML12v2 => write!(f, "sentence-transformers/all-MiniLM-L12-v2"),
+            Which::ParaphraseMultilingualMiniLML6v2 => {
+                write!(f, "sentence-transformers/paraphrase-MiniLM-L6-v2")
+            }
+            Which::ParaphraseMultilingualMiniLML12v2 => {
+                write!(
+                    f,
+                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+                )
+            }
+            Which::LaBSE => write!(f, "sentence-transformers/LaBSE"),
+        }
+    }
+}
+
 pub struct SentenceTransformerBuilder {
     model_id: String,
     with_safetensors: bool,
@@ -44,19 +65,17 @@ impl SentenceTransformerBuilder {
 
     pub fn with_sentence_transformer(model: Which) -> SentenceTransformerBuilder {
         match model {
-            Which::LaBSE => SentenceTransformerBuilder::new("sentence-transformers/LaBSE")
-                .with_safetensors()
-                .with_pooling(PoolingWhich::SentenceTransformerPooling {
-                    hf_hub_config_path: "1_Pooling/config.json".to_string(),
-                }),
-            Which::AllMiniLML6v2 => {
-                SentenceTransformerBuilder::new("sentence-transformers/all-MiniLM-L6-v2")
+            Which::LaBSE
+            | Which::AllMiniLML6v2
+            | Which::AllMiniLML12v2
+            | Which::ParaphraseMultilingualMiniLML6v2
+            | Which::ParaphraseMultilingualMiniLML12v2 => {
+                SentenceTransformerBuilder::new(model.to_string())
                     .with_safetensors()
                     .with_pooling(PoolingWhich::SentenceTransformerPooling {
                         hf_hub_config_path: "1_Pooling/config.json".to_string(),
                     })
             }
-            _ => todo!(),
         }
     }
 
@@ -108,7 +127,6 @@ impl SentenceTransformerBuilder {
         let vb = if self.with_safetensors {
             let weights_filename = download_hf_model(&self.model_id, "model.safetensors")?;
             load_safetensors(&[weights_filename], DTYPE, &device)?
-            // candle_nn::VarBuilder::from_mmaped_safetensors
         } else {
             let weights_filename = download_hf_model(&self.model_id, "pytorch_model.bin")?;
             candle_nn::VarBuilder::from_pth(&weights_filename, DTYPE, &device)?

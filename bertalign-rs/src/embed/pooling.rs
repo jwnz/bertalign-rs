@@ -30,6 +30,7 @@ impl PoolingStrategy {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct SentenceTransformersPoolingConfig {
     word_embedding_dimension: usize,
     pooling_mode_cls_token: bool,
