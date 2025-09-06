@@ -1,5 +1,0 @@
-include *.toml
-include *.md
-include Makefile
-global-include py.typed
-recursive-include src *.rs
