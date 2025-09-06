@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 bertalign-rs = { workspace = true }
+candle-core = { version = "0.9.1" }
 
 [features]
 metal = ["bertalign-rs/metal"]

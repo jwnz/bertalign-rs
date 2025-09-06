@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["bindings/python", "bertalign-rs", "bertalign-examples"]
+members = [ "bertalign-rs", "bertalign-examples"]
 
 [workspace.package]
 version = "0.1.4"

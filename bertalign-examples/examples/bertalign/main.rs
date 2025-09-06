@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use bertalign_rs::{aligner::AlignerBuilder, embed::LaBSE};
+use bertalign_rs::aligner::AlignerBuilder;
+use bertalign_rs::embed::sentence_transformer::{
+    SentenceTransformerBuilder, Which as SentenceTransformerWhich,
+};
 
 fn get_sentences() -> (Vec<&'static str>, Vec<&'static str>, Vec<&'static str>) {
     let en_sents = vec![
@@ -59,21 +62,32 @@ fn print_alignments(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let labse = Arc::new(LaBSE::new(Some(true), Some(2048)).unwrap());
-    let aligner = AlignerBuilder::new(labse.clone())
-        .max_align(5)?
-        .top_k(3)?
+    #[cfg(feature = "cuda")]
+    let device = candle_core::Device::new_cuda(0)?;
+    #[cfg(not(feature = "cuda"))]
+    let device = candle_core::Device::Cpu;
+
+    let model =
+        SentenceTransformerBuilder::with_sentence_transformer(SentenceTransformerWhich::LaBSE)
+            .batch_size(2048)
+            .with_device(&device)
+            .build()?;
+    let model = Arc::new(model);
+
+    let aligner = AlignerBuilder::default()
+        .max_align(5)
+        .top_k(3)
         .win(5)
         .skip(-0.1)
         .margin(true)
         .len_penalty(true)
-        .build();
+        .build()?;
 
     let (en_sents, ko_sents, de_sents) = get_sentences();
 
-    let en2ko_alignments = aligner.align(&en_sents, &ko_sents)?;
-    let en2de_alignments = aligner.align(&en_sents, &de_sents)?;
-    let ko2de_alignments = aligner.align(&ko_sents, &de_sents)?;
+    let en2ko_alignments = aligner.align(model.clone(), &en_sents, &ko_sents)?;
+    let en2de_alignments = aligner.align(model.clone(), &en_sents, &de_sents)?;
+    let ko2de_alignments = aligner.align(model.clone(), &ko_sents, &de_sents)?;
 
     print_alignments(&en_sents, &ko_sents, en2ko_alignments);
     print_alignments(&en_sents, &de_sents, en2de_alignments);

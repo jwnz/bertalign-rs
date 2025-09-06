@@ -1,7 +1,8 @@
 pub mod bert;
-pub mod labse;
+pub mod pooling;
+pub mod sentence_transformer;
+mod utils;
 
-pub use crate::embed::labse::LaBSE;
 use crate::error::EmbeddingError;
 
 pub trait Embed {

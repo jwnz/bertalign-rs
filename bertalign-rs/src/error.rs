@@ -83,26 +83,68 @@ pub enum TransformError {
 
 #[derive(Error, Debug)]
 pub enum EmbeddingError {
-    #[error("LabseError: {0}")]
-    LabseError(#[from] LabseError),
+    #[error("TokenizersError: {0}")]
+    TokenizersError(#[from] tokenizers::Error),
+
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+
+    #[error("PoolingError: {0}")]
+    PoolingError(#[from] PoolingError),
+
+    #[error("FastTokenBatchError: {0}")]
+    FastTokenBatchError(#[from] FastTokenBatchError),
 }
 
-#[derive(Error, Debug)]
-pub enum LabseError {
+#[derive(Debug, Error)]
+pub enum LoadSafeTensorError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum DownloadHFModelError {
+    #[error("HFHubApiError: {0}")]
+    HFHubApiError(#[from] hf_hub::api::sync::ApiError),
+}
+
+#[derive(Debug, Error)]
+pub enum SentenceTransformerBuilderError {
+    #[error("Device must be specified")]
+    DeviceNotSpecified,
+
+    #[error("Pooling method must be specified")]
+    PoolingMethodNotSpecified,
+
+    #[error("DownloadHFModelError: {0}")]
+    DownloadHFModelError(#[from] DownloadHFModelError),
+
+    #[error("IO Error: {0}")]
+    StdIOError(#[from] std::io::Error),
+
+    #[error("SerdeJsonError: {0}")]
+    SerdeJsonError(#[from] serde_json::Error),
+
+    #[error("LoadSafeTensorError: {0}")]
+    LoadSafeTensorError(#[from] LoadSafeTensorError),
+
     #[error("CandleError: {0}")]
     CandleError(#[from] candle_core::error::Error),
 
     #[error("TokenizersError: {0}")]
     TokenizersError(#[from] tokenizers::Error),
+}
 
-    #[error("HFHubError: {0}")]
-    HFHubError(#[from] hf_hub::api::sync::ApiError),
+#[derive(Debug, Error)]
+pub enum PoolingError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
+}
 
-    #[error("SerdeJsonError: {0}")]
-    SerdeJsonError(#[from] serde_json::Error),
-
-    #[error("IO Error: {0}")]
-    StdIOError(#[from] std::io::Error),
+#[derive(Debug, Error)]
+pub enum FastTokenBatchError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
 }
 
 // placeholder until I figure out a better way to handle some errors
