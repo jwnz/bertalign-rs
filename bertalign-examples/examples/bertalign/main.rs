@@ -67,12 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "cuda"))]
     let device = candle_core::Device::Cpu;
 
-    let model = SentenceTransformerBuilder::with_sentence_transformer(
-        SentenceTransformerWhich::ParaphraseMultilingualMiniLML12v2,
-    )
-    .batch_size(2048)
-    .with_device(&device)
-    .build()?;
+    let model =
+        SentenceTransformerBuilder::with_sentence_transformer(SentenceTransformerWhich::LaBSE)
+            .batch_size(2048)
+            .with_device(&device)
+            .build()?;
     let model = Arc::new(model);
 
     let aligner = AlignerBuilder::default()

@@ -13,8 +13,16 @@ note: batch_size refers to the max number of tokens in a batch
 
 ```rust
 fn main() -> error::Result<()> {
-    let labse = Arc::new(LaBSE::new(Some(true), Some(2048)).unwrap()); // embedding batch_size = 2048
-    let aligner = AlignerBuilder::new(embedding_model.clone())
+    let device = candle_core::Device::new_cuda(0)?;
+    let model = SentenceTransformerBuilder::with_sentence_transformer(
+        SentenceTransformerWhich::LaBSE
+    )
+    .batch_size(2048)
+    .with_device(&device)
+    .build()?;
+    let model = Arc::new(model);
+
+    let aligner = AlignerBuilder::default()
             .max_align(5)?
             .top_k(3)?
             .win(5)
@@ -38,7 +46,7 @@ fn main() -> error::Result<()> {
         "쉬기에 완벽한 하루였어요.",
     ];
 
-    let alignments = aligner.align(&lines, &lines2)?;
+    let alignments = aligner.align(model.clone(), &lines, &lines2)?;
     println!("{:?}", alignments);
 
     for (src, tgt) in alignments {
@@ -62,5 +70,3 @@ fn main() -> error::Result<()> {
 }
 
 ```
-
-:warning: This project is a WIP and the api is subject to change.
