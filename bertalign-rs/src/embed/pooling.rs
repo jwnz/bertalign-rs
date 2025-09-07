@@ -5,19 +5,26 @@ use serde::Deserialize;
 use crate::error::PoolingError;
 
 pub enum Which {
-    MeanPooling,
+    Cls,
+    Mean,
+    Max,
+    MeanSqrtLenTokens,
     SentenceTransformerPooling { hf_hub_config_path: String },
 }
 
 pub enum PoolingStrategy {
-    MeanPooling,
+    Cls,
+    Mean,
+    Max,
+    MeanSqrtLenTokens,
     SentenceTransformerPooling(Linear),
 }
 
 impl PoolingStrategy {
     pub fn pool(&self, last_hidden_state: Tensor) -> Result<Tensor, PoolingError> {
         match self {
-            PoolingStrategy::MeanPooling => {
+            PoolingStrategy::Cls => Ok(last_hidden_state.get_on_dim(1, 0)?.contiguous()?),
+            PoolingStrategy::Mean => {
                 todo!()
             }
             PoolingStrategy::SentenceTransformerPooling(linear) => {
