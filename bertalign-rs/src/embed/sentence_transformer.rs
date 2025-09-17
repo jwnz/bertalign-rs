@@ -79,10 +79,12 @@ impl SentenceTransformerBuilder {
                 .with_normalization()
                 .with_pooling("1_Pooling".to_string())
                 .with_dense("2_Dense".to_string()),
-            Which::AllMiniLML6v2
-            | Which::AllMiniLML12v2
-            | Which::ParaphraseMiniLML6v2
-            | Which::ParaphraseMultilingualMiniLML12v2 => {
+            Which::ParaphraseMultilingualMiniLML12v2 => {
+                SentenceTransformerBuilder::new(model.to_string())
+                    .with_safetensors()
+                    .with_pooling("1_Pooling".to_string())
+            }
+            Which::AllMiniLML6v2 | Which::AllMiniLML12v2 | Which::ParaphraseMiniLML6v2 => {
                 SentenceTransformerBuilder::new(model.to_string())
                     .with_safetensors()
                     .with_normalization()
@@ -143,11 +145,12 @@ impl SentenceTransformerBuilder {
         let tokenizer_filename = download_hf_model(&self.model_id, "tokenizer.json")?;
         let mut tokenizer = Tokenizer::from_file(tokenizer_filename)?;
         tokenizer.with_truncation(Some(TruncationParams {
-            max_length: config.max_position_embeddings, // the max for LaBSE is 512
+            max_length: config.max_position_embeddings, // todo: get this from sentence_bert_config.json file
             strategy: tokenizers::TruncationStrategy::LongestFirst,
             direction: tokenizers::TruncationDirection::Right,
             stride: 0,
         }))?;
+        tokenizer.with_padding(None);
 
         // Load the transformer
         let vb = if self.with_safetensors {

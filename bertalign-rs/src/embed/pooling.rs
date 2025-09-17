@@ -28,8 +28,6 @@ impl PoolingStrategy {
     }
 }
 
-// don't impl module, because we need attention mask for mean pooling
-// change result to a poolingerror
 impl PoolingStrategy {
     pub fn forward(
         &self,
