@@ -1,4 +1,6 @@
 pub mod bert;
+pub mod dense;
+pub mod normalize;
 pub mod pooling;
 pub mod sentence_transformer;
 mod utils;

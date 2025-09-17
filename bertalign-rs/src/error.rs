@@ -133,6 +133,9 @@ pub enum SentenceTransformerBuilderError {
 
     #[error("TokenizersError: {0}")]
     TokenizersError(#[from] tokenizers::Error),
+
+    #[error("DenseError: {0}")]
+    DenseError(#[from] DenseError),
 }
 
 #[derive(Debug, Error)]
@@ -152,4 +155,10 @@ pub enum FastTokenBatchError {
 pub enum PlaceholderError {
     #[error("CosineSimilarityError: {0}")]
     CosineSimilarityError(#[from] CosineSimilarityError),
+}
+
+#[derive(Debug, Error)]
+pub enum DenseError {
+    #[error("CandleError: {0}")]
+    CandleError(#[from] candle_core::error::Error),
 }
